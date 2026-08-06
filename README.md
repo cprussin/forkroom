@@ -142,8 +142,8 @@ Notable decisions live in [`docs/decisions/`](./docs/decisions).
 ## Deployment (Vercel + Neon, free tier)
 
 forkroom deploys on entirely free-tier services. In short: **Neon** for
-PostgreSQL, **Vercel** for the web app, and either a Vercel Cron or an external
-uptime pinger to drive the generation worker.
+PostgreSQL, **Vercel** for the web app, and an external minute-cron (e.g.
+[cron-job.org](https://cron-job.org)) to drive the generation worker.
 
 1. **Database — Neon.** Create a project at [neon.tech](https://neon.tech) and
    copy the pooled connection string into `DATABASE_URL`. The app migrates
@@ -152,10 +152,12 @@ uptime pinger to drive the generation worker.
    add the environment variables above (`DATABASE_URL`, `AUTH_SECRET`,
    `MODEL_PROVIDER`, and `ANTHROPIC_API_KEY` if using Anthropic). Deploy.
 3. **Worker.** Vercel's serverless model has no always-on process, so generation
-   is driven by `POST /api/worker/tick`, which drains queued jobs within one
-   invocation. Add a Vercel Cron (in `vercel.json`) calling it every minute and
-   set `CRON_SECRET`; or run `bun run worker` anywhere with database access for a
-   continuous worker.
+   is driven by `GET /api/worker/tick`, which drains queued jobs within one
+   invocation. Vercel's Hobby plan limits cron jobs to once per day, so point a
+   free external cron such as [cron-job.org](https://cron-job.org) at
+   `https://<app>/api/worker/tick` every minute with header
+   `Authorization: Bearer <CRON_SECRET>` (and set `CRON_SECRET` in Vercel). Or
+   run `bun run worker` anywhere with database access for a continuous worker.
 4. **Realtime.** SSE is delivered by polling the durable outbox by cursor, so it
    works within serverless function limits — connections are bounded by
    `maxDuration` and the browser reconnects and resumes from its last event id.

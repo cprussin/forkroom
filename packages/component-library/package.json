@@ -1,0 +1,55 @@
+{
+  "dependencies": {
+    "@base-ui/react": "catalog:",
+    "@phosphor-icons/react": "catalog:"
+  },
+  "devDependencies": {
+    "@forkroom/test-support": "workspace:*",
+    "@pandacss/dev": "catalog:",
+    "@pandacss/preset-panda": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "postcss": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    "./Avatar": "./src/Avatar/Avatar.tsx",
+    "./Button": "./src/Button/Button.tsx",
+    "./Card": "./src/Card/Card.tsx",
+    "./Field": "./src/Field/Field.tsx",
+    "./Input": "./src/Input/Input.tsx",
+    "./Kbd": "./src/Kbd/Kbd.tsx",
+    "./ModalDialog": "./src/ModalDialog/ModalDialog.tsx",
+    "./Provider": "./src/Provider/Provider.tsx",
+    "./pandacss-preset": "./src/pandacss-preset.ts",
+    "./Select": "./src/Select/Select.tsx",
+    "./spacing": "./src/spacing.ts",
+    "./TabRail": "./src/TabRail/TabRail.tsx",
+    "./Tabs": "./src/Tabs/Tabs.tsx",
+    "./Textarea": "./src/Textarea/Textarea.tsx",
+    "./ThemeProvider": "./src/ThemeSwitch/ThemeProvider.tsx",
+    "./ThemeSwitch": "./src/ThemeSwitch/ThemeSwitch.tsx",
+    "./theme-core": "./src/ThemeSwitch/theme-core.ts"
+  },
+  "files": [
+    "src/**/**",
+    "styled-system/**/**"
+  ],
+  "name": "@forkroom/component-library",
+  "peerDependencies": {
+    "react": "catalog:"
+  },
+  "private": true,
+  "scripts": {
+    "prepare": "panda codegen --silent",
+    "test:types": "tsc --noEmit",
+    "test:unit": "bun test"
+  },
+  "type": "module",
+  "version": "0.0.0"
+}

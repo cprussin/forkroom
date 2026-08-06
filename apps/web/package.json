@@ -1,0 +1,49 @@
+{
+  "dependencies": {
+    "@anthropic-ai/sdk": "catalog:",
+    "@cprussin/option-result": "catalog:",
+    "@forkroom/component-library": "workspace:*",
+    "next": "catalog:",
+    "next-auth": "catalog:",
+    "pg": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-markdown": "catalog:",
+    "remark-gfm": "catalog:",
+    "uuidv7": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@forkroom/test-support": "workspace:*",
+    "@pandacss/dev": "catalog:",
+    "@pandacss/preset-panda": "catalog:",
+    "@playwright/test": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "postcss": "catalog:",
+    "typescript": "catalog:"
+  },
+  "name": "@forkroom/web",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "db:migrate": "bun run src/server/db/migrate-cli.ts",
+    "db:reset": "bun run src/server/db/reset-cli.ts",
+    "db:seed": "bun run src/server/db/seed.ts",
+    "prepare": "panda codegen --silent",
+    "start:dev": "next dev --port ${PORT:-3000}",
+    "start:prod": "next start --port ${PORT:-3000}",
+    "test:e2e": "playwright test",
+    "test:integration": "bun test tests/integration",
+    "test:types": "tsc --noEmit",
+    "test:unit": "bun test src",
+    "worker": "bun run src/server/generation/worker-main.ts"
+  },
+  "type": "module",
+  "version": "0.0.0"
+}

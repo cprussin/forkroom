@@ -7,9 +7,15 @@ import { z } from "zod";
  * fields are normalized to `undefined` in memory (`docs/guidelines/CONTROL_FLOW.md`).
  */
 
+// A field that is absent, `null`, or a string, normalized to `string |
+// undefined`. Accepts a *missing* key (`.nullish()`), not just `null`, because
+// `JSON.stringify` drops keys whose value is `undefined` — which these fields
+// become after the server parses a DB `NULL`. Without this, the value survives
+// server-side parsing but its key vanishes over the wire, and the browser's
+// re-parse rejects the now-missing key as "Required".
 const nullableId = z
   .string()
-  .nullable()
+  .nullish()
   .transform((value) => value ?? undefined);
 
 // Timestamps arrive as ISO strings over JSON (browser) and as `Date` objects

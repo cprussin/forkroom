@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.turbo/
+dist/
+styled-system/
+out/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+next-env.d.ts
+coverage/

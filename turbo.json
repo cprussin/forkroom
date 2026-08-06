@@ -1,0 +1,66 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["NODE_ENV"],
+  "globalPassThroughEnv": [
+    "ANTHROPIC_API_KEY",
+    "AUTH_GITHUB_ID",
+    "AUTH_GITHUB_SECRET",
+    "AUTH_SECRET",
+    "AUTH_URL",
+    "CRON_SECRET",
+    "DATABASE_URL",
+    "E2E_BASE_URL",
+    "FORCE_COLOR",
+    "MAX_PROMPT_CHARS",
+    "MODEL_NAME",
+    "MODEL_PROVIDER",
+    "NEXT_RUNTIME",
+    "PORT",
+    "SYSTEM_PROMPT",
+    "WORKER_ID",
+    "WORKER_POLL_INTERVAL_MS"
+  ],
+  "tasks": {
+    "//#fix": {
+      "with": ["//#fix:lint"]
+    },
+    "//#fix:lint": {
+      "cache": false
+    },
+    "//#test": {
+      "with": ["//#test:lint"]
+    },
+    "//#test:lint": {
+      "cache": false
+    },
+    "build": {
+      "dependsOn": ["^prepare", "prepare"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!README.md",
+        "!**/*.test.*",
+        "!**/*.stories.*"
+      ],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "prepare": {
+      "inputs": ["panda.config.ts", "src/**/*.{ts,tsx}", "package.json"],
+      "outputs": ["styled-system/**"]
+    },
+    "start:dev": {
+      "cache": false,
+      "dependsOn": ["^prepare", "prepare"],
+      "persistent": true
+    },
+    "test": {
+      "with": ["test:types", "test:unit", "build"]
+    },
+    "test:types": {
+      "dependsOn": ["^prepare", "prepare"]
+    },
+    "test:unit": {
+      "dependsOn": ["^prepare", "prepare"]
+    }
+  },
+  "ui": "tui"
+}

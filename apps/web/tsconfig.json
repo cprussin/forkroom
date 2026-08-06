@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "declaration": false,
+    "incremental": true,
+    "jsx": "preserve",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "types": ["bun", "node", "@forkroom/test-support"]
+  },
+  "exclude": ["node_modules", ".next", "styled-system"],
+  "extends": "../../tsconfig.react.json",
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "styled-system"
+  ]
+}

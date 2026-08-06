@@ -25,7 +25,12 @@ export const getPool = (): Pool => {
   const existing = globalForPool.forkroomPool;
   if (existing === undefined) {
     const pool = new Pool({
+      // Bound how long a connect can hang before failing, so a suspended
+      // managed database surfaces a fast error that the startup retry rides
+      // out rather than blocking indefinitely.
       connectionString: getServerEnv().DATABASE_URL,
+      connectionTimeoutMillis: 10_000,
+      keepAlive: true,
       max: 5,
     });
     globalForPool.forkroomPool = pool;

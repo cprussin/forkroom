@@ -56,15 +56,19 @@ test("creator prompts on main, participant forks a branch", async ({
   await participant.waitForURL("**/chats/**");
   await expect(participant.getByText("Hello from the creator")).toBeVisible();
 
-  // Participant submits from main → a new branch is created.
+  // Participant submits on main (owned by the creator) → a new fork is created
+  // and the view switches to it, showing the participant's message.
   await participant.getByLabel("Message").fill("A participant question");
   await participant.getByRole("button", { name: "Fork" }).click();
   await expect(participant.getByText("A participant question")).toBeVisible();
 
-  // Both sessions now see more than one branch column.
-  await expect(
-    creator.getByRole("listitem").filter({ hasText: "branch" }),
-  ).toHaveCount(1, { timeout: 15_000 });
+  // The creator, still on main, sees a fork switcher appear on the forked
+  // message and can switch to the participant's fork to read it.
+  await expect(creator.getByRole("button", { name: /next fork/i })).toBeVisible(
+    { timeout: 15_000 },
+  );
+  await creator.getByRole("button", { name: /next fork/i }).click();
+  await expect(creator.getByText("A participant question")).toBeVisible();
 
   await creatorContext.close();
   await participantContext.close();

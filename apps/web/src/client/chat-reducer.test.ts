@@ -1,28 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import type { BranchEntity, MessageEntity } from "../contracts/chat-entities";
+import type { MessageEntity } from "../contracts/chat-entities";
 import type { ChatEvent } from "../contracts/chat-events";
 import {
   applyEvent,
-  branchesInBoardOrder,
   detectGap,
   emptyChatState,
   messagesForBranch,
 } from "./chat-reducer";
-
-const branch = (
-  id: string,
-  createdAt: string,
-  isMain = false,
-): BranchEntity => ({
-  chatId: "chat",
-  createdAt,
-  createdByUserId: "u",
-  forkMessageId: undefined,
-  id,
-  isMain,
-  ownerUserId: "u",
-  parentBranchId: isMain ? undefined : "main",
-});
 
 const message = (
   id: string,
@@ -130,29 +114,6 @@ describe("applyEvent", () => {
       messageEvent(4, "message_created", message("m1", "main", 1, "")),
     );
     expect(state.lastEventId).toBe(10);
-  });
-});
-
-describe("branchesInBoardOrder", () => {
-  it("puts main first, then children by creation time", () => {
-    let state = emptyChatState();
-    for (const b of [
-      branch("c2", "2026-08-06T02:00:00Z"),
-      branch("main", "2026-08-06T00:00:00Z", true),
-      branch("c1", "2026-08-06T01:00:00Z"),
-    ]) {
-      state = applyEvent(state, {
-        branch: b,
-        chatId: "chat",
-        id: 1,
-        type: "branch_created",
-      });
-    }
-    expect(branchesInBoardOrder(state).map((b) => b.id)).toStrictEqual([
-      "main",
-      "c1",
-      "c2",
-    ]);
   });
 });
 

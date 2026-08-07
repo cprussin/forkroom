@@ -65,16 +65,6 @@ export const messagesForBranch = (
     .filter((message) => message.branchId === branchId)
     .sort((a, b) => a.sequenceNumber - b.sequenceNumber);
 
-/** Branches with main first, then children by creation time (PRD §6.1). */
-export const branchesInBoardOrder = (state: ChatState): BranchEntity[] =>
-  Object.values(state.branches).sort((a, b) => {
-    if (a.isMain === b.isMain) {
-      return a.createdAt.localeCompare(b.createdAt);
-    } else {
-      return a.isMain ? -1 : 1;
-    }
-  });
-
 /**
  * Whether applying `eventId` after `cursor` would skip an event. The next
  * contiguous event is `cursor + 1`; anything beyond means the client missed

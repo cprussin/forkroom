@@ -1,6 +1,8 @@
 "use client";
 
 import { Avatar } from "@forkroom/component-library/Avatar";
+import { Button } from "@forkroom/component-library/Button";
+import { GitForkIcon } from "@phosphor-icons/react/dist/ssr/GitFork";
 import { css, cx } from "../../styled-system/css";
 import type { MessageEntity } from "../contracts/chat-entities";
 import { Markdown } from "./Markdown";
@@ -8,31 +10,37 @@ import { Markdown } from "./Markdown";
 type Props = {
   message: MessageEntity;
   authorName: string;
-  subdued?: boolean;
+  onForkFromHere?: (() => void) | undefined;
 };
 
 /**
- * A single message. Authorship, role, and generation status are conveyed with
- * text and icons — never color alone (PRD §6.5). Inherited messages render
- * subdued.
+ * A single message in the linear thread. Authorship, role, and generation
+ * status are conveyed with text and icons — never color alone (PRD §6.5). A
+ * completed message offers a "fork from here" action when one is provided.
  */
-export const MessageView = ({
-  message,
-  authorName,
-  subdued = false,
-}: Props) => {
+export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
   const isAssistant = message.role === "assistant";
   return (
-    <article
-      className={cx(rootStyles, subdued ? subduedStyles : undefined)}
-      data-role={message.role}
-    >
+    <article className={rootStyles} data-role={message.role}>
       <header className={headerStyles}>
         <Avatar name={isAssistant ? "AI" : authorName} size="xs" />
         <span className={authorStyles}>
           {isAssistant ? "Assistant" : authorName}
         </span>
         <StatusTag status={message.status} />
+        {onForkFromHere === undefined ||
+        message.status !== "completed" ? undefined : (
+          <span className={actionsStyles}>
+            <Button
+              beforeIcon={<GitForkIcon />}
+              onClick={onForkFromHere}
+              size="xs"
+              variant="ghost"
+            >
+              Fork from here
+            </Button>
+          </span>
+        )}
       </header>
       {message.content.length > 0 ? (
         <Markdown content={message.content} />
@@ -75,11 +83,9 @@ const rootStyles = css({
   display: "flex",
   flexDirection: "column",
   gap: 1.5,
-  paddingBlock: 2,
-  paddingInline: 2.5,
+  paddingBlock: 3,
+  paddingInline: 3.5,
 });
-
-const subduedStyles = css({ opacity: 0.6 });
 
 const headerStyles = css({
   alignItems: "center",
@@ -91,6 +97,10 @@ const authorStyles = css({
   color: "foreground",
   fontSize: "xs",
   fontWeight: "semibold",
+});
+
+const actionsStyles = css({
+  marginInlineStart: "auto",
 });
 
 const tagStyles = css({ color: "muted", fontSize: "xs" });

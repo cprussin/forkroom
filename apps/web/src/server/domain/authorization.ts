@@ -1,6 +1,7 @@
 import type { Result } from "@cprussin/option-result";
 import { Err, Ok } from "@cprussin/option-result";
-import { appendVsFork, SubmissionOutcome } from "./branching";
+import type { SubmissionOutcome } from "./branching";
+import { appendVsFork } from "./branching";
 import { Role } from "./roles";
 
 /**
@@ -15,13 +16,9 @@ import { Role } from "./roles";
 
 export enum SubmissionDenialReason {
   NotMember = 0,
-  CreatorOffMain = 1,
 }
 
 export const SubmissionDenial = {
-  CreatorOffMain: () => ({
-    reason: SubmissionDenialReason.CreatorOffMain as const,
-  }),
   NotMember: () => ({ reason: SubmissionDenialReason.NotMember as const }),
 };
 
@@ -46,14 +43,13 @@ export type RetryDenial = ReturnType<
 export type SubmissionInput = {
   membership: Role | undefined;
   ownsSelectedBranch: boolean;
-  selectedIsMain: boolean;
+  explicitForkRequested: boolean;
 };
 
 /**
  * Decide whether a submission is allowed and, if so, whether it appends or
  * forks. `Ok` carries `SubmissionOutcome.Append` or `SubmissionOutcome.Fork`;
- * `Err` distinguishes a non-member from a creator composing off the main
- * branch (which the MVP forbids).
+ * `Err` marks a non-member, the only role-independent denial.
  */
 export const authorizeSubmission = (
   input: SubmissionInput,
@@ -61,42 +57,29 @@ export const authorizeSubmission = (
   if (input.membership === undefined) {
     return Err(SubmissionDenial.NotMember());
   } else {
-    const outcome = appendVsFork({
-      isCreator: input.membership === Role.Creator,
-      ownsSelectedBranch: input.ownsSelectedBranch,
-      selectedIsMain: input.selectedIsMain,
-    });
-    switch (outcome) {
-      case SubmissionOutcome.Append: {
-        return Ok(SubmissionOutcome.Append);
-      }
-      case SubmissionOutcome.Fork: {
-        return Ok(SubmissionOutcome.Fork);
-      }
-      case SubmissionOutcome.CreatorMustReturnToMain: {
-        return Err(SubmissionDenial.CreatorOffMain());
-      }
-    }
+    return Ok(
+      appendVsFork({
+        explicitForkRequested: input.explicitForkRequested,
+        ownsSelectedBranch: input.ownsSelectedBranch,
+      }),
+    );
   }
 };
 
 export type RetryInput = {
   membership: Role | undefined;
-  isMainBranch: boolean;
   ownsBranch: boolean;
 };
 
 /**
- * Decide whether a user may retry a failed generation: the creator only on the
- * main branch, a participant only on a branch they own.
+ * Decide whether a user may retry a failed generation: any member, only on a
+ * branch they own (the creator owns main).
  */
 export const authorizeRetry = (
   input: RetryInput,
 ): Result<true, RetryDenial> => {
   if (input.membership === undefined) {
     return Err(RetryDenial.NotMember());
-  } else if (input.membership === Role.Creator) {
-    return input.isMainBranch ? Ok(true) : Err(RetryDenial.Forbidden());
   } else {
     return input.ownsBranch ? Ok(true) : Err(RetryDenial.Forbidden());
   }

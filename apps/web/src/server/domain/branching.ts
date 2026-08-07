@@ -1,45 +1,32 @@
 /**
- * The three possible resolutions of a prompt submission, decided purely from
- * who is submitting and which branch their composer is scoped to. The submit
- * transaction turns `Append` / `Fork` into concrete row writes; the API turns
- * `CreatorMustReturnToMain` into a rejection.
+ * The two possible resolutions of a prompt submission. The submit transaction
+ * turns `Append` / `Fork` into concrete row writes.
  */
 export enum SubmissionOutcome {
-  /** Append the prompt to the selected branch (creator on main, or owner). */
+  /** Append the prompt to the selected branch (the submitter owns it). */
   Append = 0,
-  /** Create a child branch from the selected tip (participant, not owner). */
+  /** Create a child branch: the submitter does not own the branch, or asked to
+   * fork from an earlier point in history. */
   Fork = 1,
-  /** The creator is viewing a non-main branch; the MVP forbids composing. */
-  CreatorMustReturnToMain = 2,
 }
 
 export type AppendVsForkInput = {
-  /** The submitting user is the chat's creator. */
-  isCreator: boolean;
   /** The submitting user owns the branch their composer is scoped to. */
   ownsSelectedBranch: boolean;
-  /** The selected branch is the chat's main branch. */
-  selectedIsMain: boolean;
+  /** The submission names an explicit fork point in history rather than the
+   * tip of the owned branch. */
+  explicitForkRequested: boolean;
 };
 
 /**
- * Decide whether a submission appends to the selected branch, forks a new
- * child, or is rejected. Assumes membership and branch-tip validity are checked
- * elsewhere — this is only the append-vs-fork rule from the PRD:
+ * Decide whether a submission appends to the selected branch or forks a new
+ * child. Assumes membership and branch-tip validity are checked elsewhere.
  *
- *   - The creator may only compose on main (append); composing elsewhere is
- *     rejected.
- *   - A participant appends to a branch they own and forks from any branch they
- *     do not (main included, since the creator owns main).
+ *   - You append to a branch you own (extending it).
+ *   - You fork from any branch you do not own, and from any explicit point in
+ *     history you name — even on a branch you own.
  */
-export const appendVsFork = (input: AppendVsForkInput): SubmissionOutcome => {
-  if (input.isCreator) {
-    return input.selectedIsMain
-      ? SubmissionOutcome.Append
-      : SubmissionOutcome.CreatorMustReturnToMain;
-  } else {
-    return input.ownsSelectedBranch
-      ? SubmissionOutcome.Append
-      : SubmissionOutcome.Fork;
-  }
-};
+export const appendVsFork = (input: AppendVsForkInput): SubmissionOutcome =>
+  input.ownsSelectedBranch && !input.explicitForkRequested
+    ? SubmissionOutcome.Append
+    : SubmissionOutcome.Fork;

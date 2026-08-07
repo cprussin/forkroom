@@ -14,8 +14,12 @@ export type CreateChatResult = { chatId: string; mainBranchId: string };
  * same transaction (PRD §7.2). Fails loudly if any step throws — no partial
  * chat is ever left behind.
  */
+// Placeholder shown until the first message renames the chat (the sidebar and
+// title bar never show an empty name, and the DB requires a non-empty title).
+const UNTITLED = "New chat";
+
 export const createChat = (
-  input: { userId: string; title: string },
+  input: { userId: string; title?: string | undefined },
   pool = getPool(),
   mint: IdGenerator = defaultNewId,
 ): Promise<CreateChatResult> =>
@@ -25,7 +29,10 @@ export const createChat = (
     await insertChat(tx, {
       creatorUserId: input.userId,
       id: chatId,
-      title: input.title,
+      title:
+        input.title === undefined || input.title.length === 0
+          ? UNTITLED
+          : input.title,
     });
     await insertBranch(tx, {
       chatId,

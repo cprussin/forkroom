@@ -11,6 +11,7 @@ import type { Queryable } from "../db/pool";
 import { getPool } from "../db/pool";
 import { authorizeSubmission } from "../domain/authorization";
 import { SubmissionOutcome } from "../domain/branching";
+import { deriveChatTitle } from "../domain/chat-title";
 import type { IdGenerator } from "../domain/ids";
 import { newId as defaultNewId } from "../domain/ids";
 import {
@@ -18,7 +19,7 @@ import {
   getBranchTip,
   insertBranch,
 } from "../repositories/branches";
-import { getChatMeta } from "../repositories/chats";
+import { getChatMeta, setChatTitle } from "../repositories/chats";
 import {
   hasActiveGeneration,
   insertGeneration,
@@ -172,6 +173,11 @@ const runFreshSubmission = async (
     sequenceNumber: seq,
     status: "completed",
   });
+
+  // The chat's very first message (seq 1 on main) names the chat, ChatGPT-style.
+  if (plan.targetBranchId === chat.mainBranchId && seq === 1) {
+    await setChatTitle(tx, chatId, deriveChatTitle(body.content));
+  }
   const assistantMessage = await insertMessage(tx, {
     authorUserId: undefined,
     branchId: plan.targetBranchId,

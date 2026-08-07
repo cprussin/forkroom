@@ -1,4 +1,6 @@
 import { z } from "zod";
+import type { ChatListItem } from "../../contracts/chat-list";
+import { chatListItemSchema } from "../../contracts/chat-list";
 import { execute, queryOne, queryRows } from "../db/client";
 import type { Queryable } from "../db/pool";
 
@@ -23,6 +25,43 @@ export const setMainBranch = async (
     branchId,
   ]);
 };
+
+export const setChatTitle = async (
+  db: Queryable,
+  chatId: string,
+  title: string,
+): Promise<void> => {
+  await execute(db, "UPDATE chats SET title = $2 WHERE id = $1", [
+    chatId,
+    title,
+  ]);
+};
+
+/**
+ * The chats a user is a member of, most recently active first — the sidebar's
+ * history. Activity is the latest message, falling back to the chat's creation
+ * time for a chat with no messages yet.
+ */
+export const listChatsForUser = (
+  db: Queryable,
+  userId: string,
+): Promise<ChatListItem[]> =>
+  queryRows(
+    db,
+    chatListItemSchema,
+    `SELECT c.id AS "id",
+            c.title AS "title",
+            GREATEST(
+              c.created_at,
+              COALESCE(MAX(m.created_at), c.created_at)
+            ) AS "lastActivityAt"
+       FROM chats c
+       JOIN chat_members cm ON cm.chat_id = c.id AND cm.user_id = $1
+       LEFT JOIN messages m ON m.chat_id = c.id
+      GROUP BY c.id, c.title, c.created_at
+      ORDER BY "lastActivityAt" DESC`,
+    [userId],
+  );
 
 const chatMetaSchema = z.object({
   createdAt: z.union([z.string(), z.date()]),

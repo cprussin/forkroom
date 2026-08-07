@@ -28,10 +28,9 @@ const createInviteResponseSchema = z.object({
 
 const acceptInviteResponseSchema = z.object({ chatId: z.string() });
 
-export const createChat = (
-  title: string,
-): Promise<ApiResult<{ chatId: string }>> =>
-  request("/api/chats", "POST", { title }, createChatResponseSchema);
+export const createChat = (): Promise<
+  ApiResult<{ chatId: string; mainBranchId: string }>
+> => request("/api/chats", "POST", {}, createChatResponseSchema);
 
 export const submitPrompt = (
   chatId: string,

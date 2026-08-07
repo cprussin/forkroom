@@ -5,7 +5,7 @@ import { getSessionUserId } from "../../../server/http/session-user";
 import { createChat } from "../../../server/services/create-chat";
 import { DomainErrors } from "../../../server/services/domain-error";
 
-const bodySchema = z.object({ title: z.string().min(1).max(120) });
+const bodySchema = z.object({ title: z.string().max(120).optional() });
 
 export const POST = async (request: Request): Promise<Response> => {
   const userId = await getSessionUserId();
@@ -20,5 +20,6 @@ export const POST = async (request: Request): Promise<Response> => {
     return body.response;
   }
   const result = await createChat({ title: body.value.title, userId });
+  // `title` may be undefined; createChat applies the placeholder.
   return json(result, 201);
 };

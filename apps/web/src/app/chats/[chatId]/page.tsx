@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { css } from "../../../../styled-system/css";
 import { getPool } from "../../../server/db/pool";
 import { getSessionUserId } from "../../../server/http/session-user";
+import { listChatsForUser } from "../../../server/repositories/chats";
 import { getMemberRole } from "../../../server/repositories/members";
 import { getChatSnapshot } from "../../../server/repositories/snapshot";
+import { AppShell } from "../../../ui/AppShell";
 import { CenteredPanel } from "../../../ui/CenteredPanel";
 import { ChatView } from "../../../ui/ChatView";
 
@@ -43,7 +45,12 @@ const ChatPage = async ({
     );
   }
 
-  return <ChatView snapshot={snapshot} />;
+  const chats = await listChatsForUser(getPool(), userId);
+  return (
+    <AppShell chats={chats} currentChatId={chatId}>
+      <ChatView snapshot={snapshot} />
+    </AppShell>
+  );
 };
 
 export default ChatPage;

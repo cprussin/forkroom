@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { Pool } from "pg";
 import { createMockModel } from "../../src/server/generation/model/mock";
+import type { ChatModel } from "../../src/server/generation/model/provider";
 import { runGeneration } from "../../src/server/generation/run-generation";
 import { getChatMeta } from "../../src/server/repositories/chats";
 import { getMemberRole } from "../../src/server/repositories/members";
@@ -253,6 +254,65 @@ run("chat flow (integration)", () => {
     });
     expect(continued.mode).toBe("appended");
     expect(continued.branchId).toBe(forked.branchId);
+  });
+
+  it("marks a generation failed when the model errors before emitting text", async () => {
+    const creator = await newUser(db, "creator@test.dev");
+    const { chatId, mainBranchId } = await createChat(
+      { title: "Chat", userId: creator },
+      db,
+    );
+    const submitted = await submitPrompt(
+      {
+        body: {
+          content: "Hello",
+          expectedTipMessageId: null,
+          idempotencyKey: "fail-1",
+          selectedBranchId: mainBranchId,
+        },
+        chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+    const generationId = submitted.match({
+      Err: () => {
+        throw new Error("submit failed");
+      },
+      Ok: (value) => value.generationId,
+    });
+
+    // A model that rejects before yielding any text — the assistant placeholder
+    // stays empty, so failing must still be persistable (not blocked by the
+    // content constraint) and must not wedge the generation at "streaming".
+    const failingModel: ChatModel = {
+      model: "mock-1",
+      provider: "mock",
+      stream: () => ({
+        [Symbol.asyncIterator](): AsyncIterator<{ textDelta: string }> {
+          return { next: () => Promise.reject(new Error("boom")) };
+        },
+      }),
+    };
+
+    await runGeneration(
+      generationId,
+      { model: failingModel, systemPrompt: "x" },
+      new AbortController().signal,
+      db,
+    );
+
+    const generation = await db.query(
+      "SELECT status, error_code FROM generations WHERE id = $1",
+      [generationId],
+    );
+    expect((generation.rows[0] as { status: string }).status).toBe("failed");
+
+    const assistant = (await listMessages(db, chatId)).find(
+      (m) => m.role === "assistant",
+    );
+    expect(assistant?.status).toBe("failed");
   });
 
   it("replays an idempotent request without creating duplicates", async () => {

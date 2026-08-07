@@ -1,0 +1,11 @@
+**/node_modules
+**/.turbo
+**/.next
+**/styled-system
+**/.git
+**/*.tsbuildinfo
+**/.env
+**/.env.local
+**/out
+**/test-results
+**/playwright-report

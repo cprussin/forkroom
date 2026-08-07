@@ -1,6 +1,7 @@
 import type { Queryable } from "../db/pool";
 import { getPool } from "../db/pool";
 import { claimNextJob, completeJob, rescheduleJob } from "../repositories/jobs";
+import type { JobWakeup } from "./job-wakeup";
 import type { RunGenerationDeps } from "./run-generation";
 import { runGeneration } from "./run-generation";
 
@@ -8,6 +9,31 @@ export type WorkerConfig = {
   workerId: string;
   leaseTimeoutMs: number;
   maxAttempts: number;
+};
+
+/** One turn of the queue: process the next job, reporting whether one existed. */
+export type JobStep = (signal: AbortSignal) => Promise<boolean>;
+
+/**
+ * Drive the generation queue until `signal` aborts. Consecutive jobs are
+ * drained back-to-back; only when a turn finds the queue empty does the loop
+ * park on `wakeup`, which resolves the instant a job is enqueued (or after
+ * `fallbackMs`). Parking on the wakeup rather than sleeping a fixed interval is
+ * what makes a freshly submitted prompt start generating with near-zero pickup
+ * latency.
+ */
+export const runWorkerLoop = async (
+  step: JobStep,
+  wakeup: JobWakeup,
+  fallbackMs: number,
+  signal: AbortSignal,
+): Promise<void> => {
+  while (!signal.aborted) {
+    const handled = await step(signal);
+    if (!handled) {
+      await wakeup.wait(fallbackMs, signal);
+    }
+  }
 };
 
 /**

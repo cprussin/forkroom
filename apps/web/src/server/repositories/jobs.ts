@@ -2,6 +2,12 @@ import { z } from "zod";
 import { execute, queryRows } from "../db/client";
 import type { Queryable } from "../db/pool";
 
+// Workers park on this Postgres channel; a NOTIFY here wakes them the instant a
+// job becomes available. The consumer side lives in
+// `generation/listen-for-jobs.ts`, which imports this same constant so producer
+// and consumer can never drift.
+export const JOB_CHANNEL = "generation_jobs";
+
 /** Enqueue a generation job available immediately. */
 export const enqueueGenerationJob = async (
   db: Queryable,
@@ -14,6 +20,7 @@ export const enqueueGenerationJob = async (
      ON CONFLICT (generation_id) DO NOTHING`,
     [jobId, generationId],
   );
+  await notifyJobAvailable(db);
 };
 
 /** Reset a generation's job to available again for a retry. */
@@ -32,6 +39,7 @@ export const requeueGenerationJob = async (
       WHERE generation_id = $1`,
     [generationId],
   );
+  await notifyJobAvailable(db);
 };
 
 const claimedJobSchema = z.object({
@@ -103,4 +111,15 @@ export const rescheduleJob = async (
       WHERE id = $1`,
     [jobId, backoffMs.toString(), error],
   );
+};
+
+/**
+ * Signal that a job is available now. Issued inside the enqueue/requeue
+ * transaction, the NOTIFY is delivered on COMMIT — exactly when the row becomes
+ * visible — so a worker parked on the channel picks the job up immediately.
+ * Reschedule deliberately does not call this: a backed-off job is available only
+ * in the future, and the worker's fallback poll covers that later wakeup.
+ */
+const notifyJobAvailable = async (db: Queryable): Promise<void> => {
+  await execute(db, "SELECT pg_notify($1, '')", [JOB_CHANNEL]);
 };

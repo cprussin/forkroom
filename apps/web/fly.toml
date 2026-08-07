@@ -1,0 +1,23 @@
+# fly.toml — the forkroom generation worker.
+#
+# Deploy from the repository root (the Docker build needs the monorepo context):
+#
+#   flyctl deploy . --config apps/web/fly.toml --dockerfile apps/web/Dockerfile
+#
+app = 'forkroom-worker'
+primary_region = 'sjc'
+
+# A pure background worker: no inbound traffic, so there is no [[services]]
+# block. It must stay running to drain the queue and hold its Postgres LISTEN,
+# so pin one machine always-on rather than the request-scaled auto-stop a web
+# service would use.
+auto_stop_machines = 'off'
+auto_start_machines = false
+min_machines_running = 1
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'

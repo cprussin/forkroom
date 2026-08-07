@@ -139,25 +139,28 @@ The prompt transaction, realtime delivery, generation lifecycle, and deployment
 topology are documented in [`docs/architecture.md`](./docs/architecture.md).
 Notable decisions live in [`docs/decisions/`](./docs/decisions).
 
-## Deployment (Vercel + Neon, free tier)
+## Deployment (Vercel + Neon + Fly)
 
-forkroom deploys on entirely free-tier services. In short: **Neon** for
-PostgreSQL, **Vercel** for the web app, and an external minute-cron (e.g.
-[cron-job.org](https://cron-job.org)) to drive the generation worker.
+forkroom runs the web app on **Vercel**, PostgreSQL on **Neon**, and the
+always-on generation **worker** on **Fly.io**.
 
-1. **Database — Neon.** Create a project at [neon.tech](https://neon.tech) and
-   copy the pooled connection string into `DATABASE_URL`. The app migrates
-   itself on first request; no manual step.
+1. **Database — Neon.** Create a project at [neon.tech](https://neon.tech). Use
+   the **pooled** connection string for `DATABASE_URL` on Vercel (serverless
+   fan-out), and the **direct** (unpooled) connection string for the worker on
+   Fly — Postgres `LISTEN` does not survive the transaction pooler. The app
+   migrates itself on first request; no manual step.
 2. **Web — Vercel.** Import the repo, set the project root to `apps/web`, and
    add the environment variables above (`DATABASE_URL`, `AUTH_SECRET`,
    `MODEL_PROVIDER`, and `ANTHROPIC_API_KEY` if using Anthropic). Deploy.
-3. **Worker.** Vercel's serverless model has no always-on process, so generation
-   is driven by `GET /api/worker/tick`, which drains queued jobs within one
-   invocation. Vercel's Hobby plan limits cron jobs to once per day, so point a
-   free external cron such as [cron-job.org](https://cron-job.org) at
-   `https://<app>/api/worker/tick` every minute with header
-   `Authorization: Bearer <CRON_SECRET>` (and set `CRON_SECRET` in Vercel). Or
-   run `bun run worker` anywhere with database access for a continuous worker.
+3. **Worker — Fly.** Generation runs in a long-lived worker (`bun run worker`),
+   deployed from `apps/web/fly.toml` + `apps/web/Dockerfile`. It parks on a
+   Postgres `LISTEN` and starts a generation the instant a prompt is enqueued —
+   sub-second pickup, versus up to a minute when driven by an external cron. Set
+   the worker's `DATABASE_URL` to Neon's **direct** connection string plus the
+   same model config as the web app (`MODEL_PROVIDER`, `MODEL_NAME`,
+   `ANTHROPIC_API_KEY`, `SYSTEM_PROMPT`). See the pull request description for
+   the exact `flyctl` commands. The serverless `GET /api/worker/tick` cron still
+   works as a fallback for hosts without a Fly worker.
 4. **Realtime.** SSE is delivered by polling the durable outbox by cursor, so it
    works within serverless function limits — connections are bounded by
    `maxDuration` and the browser reconnects and resumes from its last event id.

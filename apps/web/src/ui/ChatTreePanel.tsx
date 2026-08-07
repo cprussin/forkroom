@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar } from "@forkroom/component-library/Avatar";
+import { Tooltip } from "@forkroom/component-library/Tooltip";
 import { RobotIcon } from "@phosphor-icons/react/dist/ssr/Robot";
 import { css } from "../../styled-system/css";
 import { center } from "../../styled-system/patterns";
@@ -24,11 +25,11 @@ type Props = {
 };
 
 // Drawing geometry, in SVG user units. Cells leave room around each avatar so
-// the focused node can grow and glow without clipping or colliding.
-const CELL = 48;
-const COL_PITCH = 52;
-const ROW_PITCH = 64;
-const PAD = 20;
+// the focused node can grow without clipping or colliding.
+const CELL = 54;
+const COL_PITCH = 56;
+const ROW_PITCH = 66;
+const PAD = 22;
 const PREVIEW_LIMIT = 200;
 
 const cellX = (column: number): number => PAD + column * COL_PITCH;
@@ -78,7 +79,12 @@ export const ChatTreePanel = ({
       <aside aria-label="Conversation tree" className={asideStyles}>
         <div className={headerStyles}>Chat flow</div>
         <div className={scrollStyles}>
-          <svg height={height} role="presentation" width={width}>
+          <svg
+            className={svgStyles}
+            height={height}
+            role="presentation"
+            width={width}
+          >
             <g>
               {tree.edges.map((edge) => (
                 <path
@@ -100,24 +106,34 @@ export const ChatTreePanel = ({
                 y={cellY(node.depth)}
               >
                 <div className={cellStyles}>
-                  <button
-                    aria-current={
-                      node.messageId === currentMessageId ? "true" : undefined
+                  <Tooltip
+                    delay={200}
+                    trigger={
+                      <button
+                        aria-current={
+                          node.messageId === currentMessageId
+                            ? "true"
+                            : undefined
+                        }
+                        aria-label={authorLabel(node, members)}
+                        className={nodeStyles}
+                        data-current={
+                          node.messageId === currentMessageId ? "" : undefined
+                        }
+                        data-onpath={
+                          activeIds.has(node.messageId) ? "" : undefined
+                        }
+                        onClick={() => {
+                          onSelectMessage(node.branchId, node.messageId);
+                        }}
+                        type="button"
+                      >
+                        <NodeAvatar members={members} node={node} />
+                      </button>
                     }
-                    aria-label={authorLabel(node, members)}
-                    className={nodeStyles}
-                    data-current={
-                      node.messageId === currentMessageId ? "" : undefined
-                    }
-                    data-onpath={activeIds.has(node.messageId) ? "" : undefined}
-                    onClick={() => {
-                      onSelectMessage(node.branchId, node.messageId);
-                    }}
-                    title={previewOf(messageById.get(node.messageId))}
-                    type="button"
                   >
-                    <NodeAvatar members={members} node={node} />
-                  </button>
+                    {previewOf(messageById.get(node.messageId))}
+                  </Tooltip>
                 </div>
               </foreignObject>
             ))}
@@ -222,25 +238,28 @@ const scrollStyles = css({
   padding: 1,
 });
 
+// Centre the graph when it fits; when it's wider than the rail it grows to the
+// right and scrolls, rather than clipping.
+const svgStyles = css({ display: "block", marginInline: "auto" });
+
 const edgeStyles = css({ fill: "none", stroke: "border" });
 
 const cellStyles = center({ blockSize: "100%", inlineSize: "100%" });
 
 const nodeStyles = css({
   "&:focus-visible": {
-    boxShadow: "0 0 0 {spacing.1} {colors.accent}",
+    boxShadow: "0 0 0 {spacing.0.75} {colors.accent}",
     outlineStyle: "none",
   },
   "&:hover:not([data-current])": {
     boxShadow: "0 0 0 {spacing.0.5} {colors.accent}",
-    transform: "scale(1.1)",
+    transform: "scale(1.08)",
   },
-  // The focused node is unmistakable: it grows, gains a thick accent ring, and
-  // throws an accent glow. On-path nodes wear a quiet ring; off-path, none.
+  // The focused node is unmistakable: it grows and gains a thick accent ring.
+  // On-path nodes wear a quiet ring; off-path, none.
   "&[data-current]": {
-    boxShadow:
-      "0 0 0 {spacing.1} {colors.accent}, 0 0 {spacing.3} {spacing.0.5} color-mix(in oklab, {colors.accent} 60%, transparent)",
-    transform: "scale(1.22)",
+    boxShadow: "0 0 0 {spacing.0.75} {colors.accent}",
+    transform: "scale(1.18)",
   },
   "&[data-onpath]:not([data-current])": {
     boxShadow: "0 0 0 {spacing.0.5} {colors.borderStrong}",

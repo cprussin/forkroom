@@ -35,6 +35,7 @@
     "./Textarea": "./src/Textarea/Textarea.tsx",
     "./ThemeProvider": "./src/ThemeSwitch/ThemeProvider.tsx",
     "./ThemeSwitch": "./src/ThemeSwitch/ThemeSwitch.tsx",
+    "./Tooltip": "./src/Tooltip/Tooltip.tsx",
     "./theme-core": "./src/ThemeSwitch/theme-core.ts"
   },
   "files": [

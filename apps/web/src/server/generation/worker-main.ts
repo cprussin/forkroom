@@ -1,13 +1,17 @@
 import { ensureDatabaseReady } from "../db/ensure-ready";
 import { getPool } from "../db/pool";
 import { getServerEnv } from "../env";
+import { listenForJobs } from "./listen-for-jobs";
 import { selectModel } from "./model/select-model";
-import { processNextJob } from "./worker";
+import { processNextJob, runWorkerLoop } from "./worker";
 
 /**
- * `bun run worker` — the standalone generation worker. Polls the jobs table and
- * processes one generation at a time. Run one or more of these alongside the web
- * process; `FOR UPDATE SKIP LOCKED` lets them share the queue safely.
+ * `bun run worker` — the standalone generation worker. Deploy it as an
+ * always-on process (e.g. on Fly) so generation starts the instant a prompt is
+ * submitted: it parks on a Postgres `LISTEN` and wakes on the enqueue `NOTIFY`,
+ * falling back to a periodic poll for jobs that become available without one
+ * (lease reclaim, backed-off retries). Run one or more of these; `FOR UPDATE
+ * SKIP LOCKED` lets them share the queue safely.
  */
 const main = async (): Promise<void> => {
   const env = getServerEnv();
@@ -31,19 +35,18 @@ const main = async (): Promise<void> => {
   // biome-ignore lint/suspicious/noConsole: worker lifecycle output
   console.log(`worker ${env.WORKER_ID} started (provider=${model.provider})`);
 
-  while (!controller.signal.aborted) {
-    const handled = await processNextJob(deps, config, controller.signal);
-    if (!handled) {
-      await delay(env.WORKER_POLL_INTERVAL_MS);
-    }
+  const listener = await listenForJobs(pool);
+  try {
+    await runWorkerLoop(
+      (signal) => processNextJob(deps, config, signal),
+      listener.wakeup,
+      env.WORKER_POLL_INTERVAL_MS,
+      controller.signal,
+    );
+  } finally {
+    await listener.close();
+    await pool.end();
   }
-
-  await pool.end();
 };
-
-const delay = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 
 await main();

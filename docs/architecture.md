@@ -93,12 +93,17 @@ connection. See [decisions/0003](./decisions/0003-realtime-sse-outbox-polling.md
 - **Web**: the Next.js app. Route handlers and RSC pages run on the Node
   runtime (the `pg` driver is Node-only). The database self-migrates via the
   `instrumentation.ts` hook on first boot.
-- **Worker**: `bun run worker` (a long-lived process) or `POST /api/worker/tick`
-  (a serverless-friendly cron that drains the queue within one invocation). Many
-  workers can run concurrently — `FOR UPDATE SKIP LOCKED` keeps them from
-  contending.
+- **Worker**: `bun run worker` (a long-lived process, deployed always-on to
+  Fly) or `POST /api/worker/tick` (a serverless-friendly cron that drains the
+  queue within one invocation). The long-lived worker parks on a Postgres
+  `LISTEN`, so an enqueue `NOTIFY` starts generation with sub-second pickup
+  instead of waiting for the next cron tick; a fallback poll still catches jobs
+  that become available without a notification (lease reclaim, backed-off
+  retries). Many workers can run concurrently — `FOR UPDATE SKIP LOCKED` keeps
+  them from contending. See [decisions/0006](./decisions/0006-always-on-worker-listen-notify.md).
 - **Database**: one PostgreSQL instance (e.g. Neon). A connection pooler is
-  recommended for serverless fan-out.
+  recommended for the serverless web app's fan-out; the worker instead needs a
+  direct (session) connection so its `LISTEN` survives.
 
 ## Security posture
 

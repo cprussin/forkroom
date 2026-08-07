@@ -26,6 +26,10 @@ const serverEnvSchema = z.object({
       "You are a helpful, concise assistant in a collaborative chat. Answer in Markdown.",
     ),
   WORKER_ID: z.string().min(1).default("worker-1"),
+  // Fallback poll interval for the standalone worker. The worker normally wakes
+  // on a Postgres NOTIFY the instant a job is enqueued; this bounds how long a
+  // job that becomes available *without* a notification (lease reclaim, a
+  // backed-off retry, or a missed notification) waits before pickup.
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
 });
 

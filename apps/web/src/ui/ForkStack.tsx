@@ -79,13 +79,22 @@ const variantLabel = (
 ): string =>
   variant.isMain ? "Main" : forkLabel(memberName(variant.ownerUserId));
 
+// The stack sticks to the top of the conversation while its branch's messages
+// are on screen, so the fork stays visible — and switchable — even when you've
+// scrolled deep into a long branched reply. An opaque background occludes the
+// messages scrolling behind it.
 const rootStyles = css({
   alignItems: "flex-start",
-  alignSelf: "flex-start",
+  alignSelf: "stretch",
+  backgroundColor: "background",
   display: "flex",
   flexDirection: "column",
   gap: 1,
+  insetBlockStart: 0,
+  paddingBlock: 1.5,
   paddingInline: 1,
+  position: "sticky",
+  zIndex: 1,
 });
 
 const captionStyles = css({

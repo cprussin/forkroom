@@ -9,7 +9,7 @@ import type { ChatSnapshot } from "../contracts/chat-snapshot";
 import { ChatTreePanel } from "./ChatTreePanel";
 import type { ForkPoint } from "./Composer";
 import { Composer } from "./Composer";
-import { ForkSwitcher } from "./ForkSwitcher";
+import { ForkStack } from "./ForkStack";
 import { MessageView } from "./MessageView";
 import { ReconnectingBanner } from "./ReconnectingBanner";
 import { TopBar } from "./TopBar";
@@ -199,7 +199,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
                       }}
                     />
                     {entry.fork === undefined ? undefined : (
-                      <ForkSwitcher
+                      <ForkStack
                         fork={entry.fork}
                         memberName={memberName}
                         onSelectBranch={selectBranch}

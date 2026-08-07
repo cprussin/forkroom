@@ -24,6 +24,7 @@ consume it — don't fork. See [/docs/guidelines/STYLING.md](../../docs/guidelin
 | `@forkroom/component-library/ModalDialog` | Modal dialog with flattened `title` / `footer` / `trigger` API. |
 | `@forkroom/component-library/Avatar` | Avatar with image, icon, or initials / gradient fallback. |
 | `@forkroom/component-library/Kbd` | Keyboard-shortcut key cap. |
+| `@forkroom/component-library/Tooltip` | Hover/focus label anchored to a trigger (base-ui Tooltip), flattened `trigger` + `children` API. |
 | `@forkroom/component-library/pandacss-preset` | The `forkroomPreset` every package's `panda.config.ts` extends. |
 
 Styling goes through the theme defined in the preset

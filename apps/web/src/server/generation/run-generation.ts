@@ -84,6 +84,15 @@ export const runGeneration = async (
       latencyMs: now() - startedAt,
     });
   } catch (error) {
+    // Surface the provider failure cause so it can be diagnosed from server
+    // logs. The message is the provider's own error (e.g. a 401/404 category),
+    // never the prompt or response content (PRD §14).
+    // biome-ignore lint/suspicious/noConsole: operational visibility for generation failures
+    console.error(
+      `generation ${generation.id} failed (${classifyError(error)}): ${
+        error instanceof Error ? error.message : "unknown error"
+      }`,
+    );
     await fail(pool, generation, classifyError(error));
   }
 };

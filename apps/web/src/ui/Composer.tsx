@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@forkroom/component-library/Button";
-import { Textarea } from "@forkroom/component-library/Textarea";
+import { GitForkIcon } from "@phosphor-icons/react/dist/ssr/GitFork";
 import { XIcon } from "@phosphor-icons/react/dist/ssr/X";
 import { useState } from "react";
 import { css } from "../../styled-system/css";
@@ -10,6 +10,7 @@ import type { ChatState } from "../client/chat-reducer";
 import { messagesForBranch } from "../client/chat-reducer";
 import { computeComposerMode } from "../client/composer-mode";
 import type { BranchEntity } from "../contracts/chat-entities";
+import { ComposerInput } from "./ComposerInput";
 
 export type ForkPoint = { messageId: string; label: string };
 
@@ -122,39 +123,18 @@ export const Composer = ({
           </Button>
         </div>
       )}
+      <ComposerInput
+        canSubmit={canSubmit}
+        onChange={setDraft}
+        onSubmit={submit}
+        pending={pending}
+        sendIcon={mode.willFork ? <GitForkIcon weight="bold" /> : undefined}
+        sendLabel={mode.willFork ? "Fork" : "Send"}
+        value={draft}
+      />
       <p aria-live="polite" className={statusStyles}>
         {statusMessage}
       </p>
-      <div className={rowStyles}>
-        <Textarea
-          aria-label="Message"
-          autoSize
-          maxHeight={200}
-          onChange={(event) => {
-            setDraft(event.target.value);
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              (event.metaKey || event.ctrlKey) &&
-              canSubmit
-            ) {
-              event.preventDefault();
-              submit();
-            }
-          }}
-          placeholder="Type a message…  (⌘/Ctrl + Enter to send)"
-          value={draft}
-        />
-        <Button
-          disabled={!canSubmit}
-          loading={pending}
-          onClick={submit}
-          variant="primary"
-        >
-          {mode.willFork ? "Fork" : "Send"}
-        </Button>
-      </div>
       {error === undefined ? undefined : (
         <p className={errorStyles} role="alert">
           {error}
@@ -179,12 +159,10 @@ const getStatusMessage = (input: {
 };
 
 const rootStyles = css({
-  backgroundColor: "card",
-  borderBlockStart: "1px solid {colors.border}",
-  boxShadow: "lifted",
+  backgroundColor: "background",
   display: "flex",
   flexDirection: "column",
-  gap: 2,
+  gap: 1.5,
   inlineSize: "100%",
   marginInline: "auto",
   maxInlineSize: "3xl",
@@ -205,12 +183,15 @@ const forkChipStyles = css({
   paddingInline: 2,
 });
 
-const statusStyles = css({ color: "muted", fontSize: "xs" });
-
-const rowStyles = css({
-  alignItems: "flex-end",
-  display: "flex",
-  gap: 2,
+const statusStyles = css({
+  color: "muted",
+  fontSize: "xs",
+  paddingInline: 2,
+  textAlign: "center",
 });
 
-const errorStyles = css({ color: "danger", fontSize: "sm" });
+const errorStyles = css({
+  color: "danger",
+  fontSize: "sm",
+  textAlign: "center",
+});

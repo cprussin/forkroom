@@ -4,7 +4,10 @@ import { createMockModel } from "../../src/server/generation/model/mock";
 import type { ChatModel } from "../../src/server/generation/model/provider";
 import { runGeneration } from "../../src/server/generation/run-generation";
 import { getBranch } from "../../src/server/repositories/branches";
-import { getChatMeta } from "../../src/server/repositories/chats";
+import {
+  getChatMeta,
+  listChatsForUser,
+} from "../../src/server/repositories/chats";
 import { getMemberRole } from "../../src/server/repositories/members";
 import { listMessages } from "../../src/server/repositories/messages";
 import { getChatSnapshot } from "../../src/server/repositories/snapshot";
@@ -63,6 +66,90 @@ run("chat flow (integration)", () => {
     const meta = await getChatMeta(db, chatId);
     expect(meta?.mainBranchId).toBe(mainBranchId);
     expect(await getMemberRole(db, chatId, creator)).toBeDefined();
+  });
+
+  it("defaults an untitled chat and names it from the first message", async () => {
+    const creator = await newUser(db, "creator@test.dev");
+    const { chatId, mainBranchId } = await createChat({ userId: creator }, db);
+
+    // Untitled until the first message.
+    expect((await getChatMeta(db, chatId))?.title).toBe("New chat");
+
+    const first = await submitPrompt(
+      {
+        body: {
+          content: "Help me plan a birthday party",
+          expectedTipMessageId: null,
+          idempotencyKey: "first",
+          selectedBranchId: mainBranchId,
+        },
+        chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+    expect((await getChatMeta(db, chatId))?.title).toBe(
+      "Help me plan a birthday party",
+    );
+
+    // Finish the first generation so the branch is free to append to again.
+    await runGeneration(
+      first.match({
+        Err: () => {
+          throw new Error("first submit failed");
+        },
+        Ok: (v) => v.generationId,
+      }),
+      genDeps,
+      new AbortController().signal,
+      db,
+    );
+
+    // A later message does not rename the chat.
+    const tip = (await listMessages(db, chatId)).at(-1);
+    await submitPrompt(
+      {
+        body: {
+          content: "Actually, make it a surprise party instead",
+          expectedTipMessageId: tip?.id ?? null,
+          idempotencyKey: "second",
+          selectedBranchId: mainBranchId,
+        },
+        chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+    expect((await getChatMeta(db, chatId))?.title).toBe(
+      "Help me plan a birthday party",
+    );
+  });
+
+  it("lists a user's chats, most recently active first", async () => {
+    const creator = await newUser(db, "creator@test.dev");
+    const older = await createChat({ title: "Older", userId: creator }, db);
+    const newer = await createChat({ title: "Newer", userId: creator }, db);
+
+    // Activity on the older chat lifts it above the newer, message-less one.
+    await submitPrompt(
+      {
+        body: {
+          content: "ping",
+          expectedTipMessageId: null,
+          idempotencyKey: "bump",
+          selectedBranchId: older.mainBranchId,
+        },
+        chatId: older.chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+
+    const chats = await listChatsForUser(db, creator);
+    expect(chats.map((c) => c.id)).toStrictEqual([older.chatId, newer.chatId]);
   });
 
   it("appends the creator's prompt to main and runs its generation", async () => {

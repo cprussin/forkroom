@@ -1,9 +1,7 @@
 "use client";
 
-import { ThemeSwitch } from "@forkroom/component-library/ThemeSwitch";
 import { css } from "../../styled-system/css";
 import { InviteButton } from "./InviteButton";
-import { SignOutButton } from "./SignOutButton";
 
 type Props = {
   title: string;
@@ -12,13 +10,10 @@ type Props = {
   isCreator: boolean;
 };
 
-/** Persistent top bar: title, presence, invite (creator), theme, and account. */
+/** Chat header: the (auto-derived) title, presence, and invite for the creator. */
 export const TopBar = ({ title, memberCount, chatId, isCreator }: Props) => (
   <header className={barStyles}>
     <div className={leadStyles}>
-      <a className={brandStyles} href="/">
-        forkroom
-      </a>
       <h1 className={titleStyles}>{title}</h1>
     </div>
     <div className={actionsStyles}>
@@ -26,8 +21,6 @@ export const TopBar = ({ title, memberCount, chatId, isCreator }: Props) => (
         {memberCount} {memberCount === 1 ? "member" : "members"}
       </span>
       {isCreator ? <InviteButton chatId={chatId} /> : undefined}
-      <ThemeSwitch />
-      <SignOutButton />
     </div>
   </header>
 );
@@ -48,12 +41,6 @@ const leadStyles = css({
   display: "flex",
   gap: 3,
   minInlineSize: 0,
-});
-
-const brandStyles = css({
-  color: "accent",
-  fontWeight: "bold",
-  letterSpacing: "tight",
 });
 
 const titleStyles = css({

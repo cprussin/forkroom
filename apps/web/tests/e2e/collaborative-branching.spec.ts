@@ -29,15 +29,12 @@ test("creator prompts on main, participant forks a branch", async ({
   const creator = await creatorContext.newPage();
   const participant = await participantContext.newPage();
 
-  // Creator signs in and starts a chat.
+  // Creator signs in; the first message creates and names the chat (no title
+  // prompt), then streams a reply.
   await signIn(creator, `creator+${Date.now().toString()}@example.com`);
-  await creator.getByLabel("Chat title").fill("E2E branching");
-  await creator.getByRole("button", { name: "Create" }).click();
-  await creator.waitForURL("**/chats/**");
-
-  // Creator prompts on main and sees a streamed reply complete.
   await creator.getByLabel("Message").fill("Hello from the creator");
   await creator.getByRole("button", { name: "Send" }).click();
+  await creator.waitForURL("**/chats/**");
   await expect(creator.getByText("Hello from the creator")).toBeVisible();
   await expect(creator.getByText(/mock assistant reply/i)).toBeVisible({
     timeout: 15_000,

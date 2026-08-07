@@ -131,9 +131,11 @@ const forkPointLabel = (
     : `${memberName(message.authorUserId)} message`;
 
 const pageStyles = css({
-  blockSize: "100dvh",
+  blockSize: "100%",
   display: "flex",
+  flex: 1,
   flexDirection: "column",
+  minBlockSize: 0,
 });
 
 const scrollStyles = css({

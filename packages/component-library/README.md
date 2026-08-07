@@ -22,7 +22,7 @@ consume it — don't fork. See [/docs/guidelines/STYLING.md](../../docs/guidelin
 | `@forkroom/component-library/Select` | Select / listbox (base-ui Select). |
 | `@forkroom/component-library/Tabs` | Tabbed container (base-ui Tabs): config-driven `tabs` array, a sliding active underline, `size` variants, inset focus ring. |
 | `@forkroom/component-library/ModalDialog` | Modal dialog with flattened `title` / `footer` / `trigger` API. |
-| `@forkroom/component-library/Avatar` | Avatar with initials / gradient fallback. |
+| `@forkroom/component-library/Avatar` | Avatar with image, icon, or initials / gradient fallback. |
 | `@forkroom/component-library/Kbd` | Keyboard-shortcut key cap. |
 | `@forkroom/component-library/pandacss-preset` | The `forkroomPreset` every package's `panda.config.ts` extends. |
 

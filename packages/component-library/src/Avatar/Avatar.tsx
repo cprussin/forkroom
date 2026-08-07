@@ -2,6 +2,7 @@
 
 import type { ImageLoadingStatus } from "@base-ui/react/avatar";
 import { Avatar as BaseAvatar } from "@base-ui/react/avatar";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { css, cva } from "../../styled-system/css";
 import { center, circle } from "../../styled-system/patterns";
@@ -26,13 +27,21 @@ type Props = ExtendProps<
   {
     alt?: string | undefined;
     children?: undefined;
+    icon?: ReactNode | undefined;
     name: string;
     size?: AvatarSize | undefined;
     src?: string | undefined;
   }
 >;
 
-export const Avatar = ({ name, size = "md", src, alt, ...props }: Props) => {
+export const Avatar = ({
+  name,
+  size = "md",
+  src,
+  alt,
+  icon,
+  ...props
+}: Props) => {
   const [status, setStatus] = useState<ImageLoadingStatus>("idle");
 
   const fallbackVisible = src === undefined || status === "error";
@@ -57,10 +66,17 @@ export const Avatar = ({ name, size = "md", src, alt, ...props }: Props) => {
         />
       )}
       <BaseAvatar.Fallback
-        className={fallbackStyles({ visible: fallbackVisible })}
-        style={{ backgroundImage: getGradient(name) }}
+        className={fallbackStyles({
+          icon: icon !== undefined,
+          visible: fallbackVisible,
+        })}
+        style={
+          icon === undefined
+            ? { backgroundImage: getGradient(name) }
+            : undefined
+        }
       >
-        {getInitials(name)}
+        {icon ?? getInitials(name)}
       </BaseAvatar.Fallback>
     </BaseAvatar.Root>
   );
@@ -95,6 +111,12 @@ const fallbackStyles = cva({
     transition: "opacity {durations.slowest} {easings.out}",
   }),
   variants: {
+    // When an icon stands in for the avatar there is no gradient behind it, so
+    // paint the glyph in the foreground color and size it to fill the circle.
+    icon: {
+      false: {},
+      true: { "& svg": { height: "70%", width: "70%" }, color: "foreground" },
+    },
     visible: {
       false: { opacity: 0 },
       true: { opacity: 1 },

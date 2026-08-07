@@ -3,6 +3,7 @@
 import { Avatar } from "@forkroom/component-library/Avatar";
 import { Button } from "@forkroom/component-library/Button";
 import { GitForkIcon } from "@phosphor-icons/react/dist/ssr/GitFork";
+import { RobotIcon } from "@phosphor-icons/react/dist/ssr/Robot";
 import { css, cx } from "../../styled-system/css";
 import type { MessageEntity } from "../contracts/chat-entities";
 import { Markdown } from "./Markdown";
@@ -23,7 +24,11 @@ export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
   return (
     <article className={rootStyles} data-role={message.role}>
       <header className={headerStyles}>
-        <Avatar name={isAssistant ? "AI" : authorName} size="xs" />
+        <Avatar
+          icon={isAssistant ? <RobotIcon weight="fill" /> : undefined}
+          name={isAssistant ? "Assistant" : authorName}
+          size="xs"
+        />
         <span className={authorStyles}>
           {isAssistant ? "Assistant" : authorName}
         </span>

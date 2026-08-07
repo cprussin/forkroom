@@ -57,6 +57,22 @@ describe(Avatar, () => {
     });
   });
 
+  describe("icon", () => {
+    it("renders a provided icon in place of the initials", () => {
+      render(<Avatar icon={<svg data-testid="robot" />} name="AI" />);
+      expect(screen.getByTestId("robot")).toBeInTheDocument();
+      expect(screen.queryByText("AI")).toBeNull();
+    });
+
+    it("does not apply a gradient background when an icon is provided", () => {
+      render(<Avatar icon={<svg data-testid="robot" />} name="AI" />);
+      const fallback = screen.getByTestId("robot").parentElement;
+      expect(fallback?.getAttribute("style") ?? "").not.toContain(
+        "linear-gradient",
+      );
+    });
+  });
+
   describe("image loading", () => {
     it("renders the initials fallback as a hidden overlay while an image src is loading", () => {
       render(<Avatar name="Ada Lovelace" src="https://example.com/ada.png" />);

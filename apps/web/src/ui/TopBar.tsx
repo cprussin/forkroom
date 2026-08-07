@@ -1,25 +1,25 @@
 "use client";
 
 import { css } from "../../styled-system/css";
+import type { MemberEntity } from "../contracts/chat-entities";
 import { InviteButton } from "./InviteButton";
+import { MemberStack } from "./MemberStack";
 
 type Props = {
   title: string;
-  memberCount: number;
+  members: MemberEntity[];
   chatId: string;
   isCreator: boolean;
 };
 
 /** Chat header: the (auto-derived) title, presence, and invite for the creator. */
-export const TopBar = ({ title, memberCount, chatId, isCreator }: Props) => (
+export const TopBar = ({ title, members, chatId, isCreator }: Props) => (
   <header className={barStyles}>
     <div className={leadStyles}>
       <h1 className={titleStyles}>{title}</h1>
     </div>
     <div className={actionsStyles}>
-      <span className={presenceStyles}>
-        {memberCount} {memberCount === 1 ? "member" : "members"}
-      </span>
+      <MemberStack members={members} />
       {isCreator ? <InviteButton chatId={chatId} /> : undefined}
     </div>
   </header>
@@ -53,5 +53,3 @@ const titleStyles = css({
 });
 
 const actionsStyles = css({ alignItems: "center", display: "flex", gap: 2 });
-
-const presenceStyles = css({ color: "muted", fontSize: "sm" });

@@ -25,6 +25,7 @@
     "./Input": "./src/Input/Input.tsx",
     "./Kbd": "./src/Kbd/Kbd.tsx",
     "./ModalDialog": "./src/ModalDialog/ModalDialog.tsx",
+    "./Popover": "./src/Popover/Popover.tsx",
     "./Provider": "./src/Provider/Provider.tsx",
     "./pandacss-preset": "./src/pandacss-preset.ts",
     "./Select": "./src/Select/Select.tsx",

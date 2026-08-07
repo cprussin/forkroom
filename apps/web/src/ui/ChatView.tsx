@@ -6,7 +6,7 @@ import { buildThreadView } from "../client/thread-view";
 import { useChatStream } from "../client/use-chat-stream";
 import type { MessageEntity } from "../contracts/chat-entities";
 import type { ChatSnapshot } from "../contracts/chat-snapshot";
-import { BranchGraphPanel } from "./BranchGraphPanel";
+import { ChatTreePanel } from "./ChatTreePanel";
 import type { ForkPoint } from "./Composer";
 import { Composer } from "./Composer";
 import { ForkSwitcher } from "./ForkSwitcher";
@@ -24,13 +24,24 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
   const { state, connected } = useChatStream(snapshot);
   const [leafBranchId, setLeafBranchId] = useState(snapshot.chat.mainBranchId);
   const [forkPoint, setForkPoint] = useState<ForkPoint | undefined>(undefined);
+  const [focusedMessageId, setFocusedMessageId] = useState<string | undefined>(
+    undefined,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const leaf =
     state.branches[leafBranchId] ?? state.branches[snapshot.chat.mainBranchId];
   const currentBranchId = leaf?.id ?? snapshot.chat.mainBranchId;
   const entries = buildThreadView(state, currentBranchId);
   const members = Object.values(state.members);
+  const activeMessageIds = entries.map((entry) => entry.message.id);
+  // Stable key of the visible path, so the scroll observer re-binds only when
+  // the set of on-screen messages actually changes.
+  const threadKey = activeMessageIds.join("|");
+  // The tree highlights whatever message is scrolled into focus; before the
+  // first scroll it falls back to the tip of the current thread.
+  const focusedInTree = focusedMessageId ?? activeMessageIds.at(-1);
 
   const memberName = (userId: string | undefined): string => {
     if (userId === undefined) {
@@ -69,6 +80,45 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     }
   }, [entries.length]);
 
+  // Track which message is in focus as the thread scrolls, so the tree's
+  // highlight follows the reader. The topmost message still intersecting the
+  // upper part of the viewport wins.
+  useEffect(() => {
+    const root = scrollRef.current;
+    const ids = threadKey.length === 0 ? [] : threadKey.split("|");
+    if (root === null || ids.length === 0) {
+      return undefined;
+    } else {
+      const tops = new Map<string, number>();
+      const observer = new IntersectionObserver(
+        (records) => {
+          for (const record of records) {
+            const id = record.target.getAttribute("data-message-id");
+            if (id !== null && record.isIntersecting) {
+              tops.set(id, record.boundingClientRect.top);
+            } else if (id !== null) {
+              tops.delete(id);
+            }
+          }
+          const topmost = [...tops].sort((a, b) => a[1] - b[1])[0];
+          if (topmost !== undefined) {
+            setFocusedMessageId(topmost[0]);
+          }
+        },
+        { root, rootMargin: "0px 0px -55% 0px", threshold: 0 },
+      );
+      for (const id of ids) {
+        const element = messageRefs.current.get(id);
+        if (element !== undefined) {
+          observer.observe(element);
+        }
+      }
+      return () => {
+        observer.disconnect();
+      };
+    }
+  }, [threadKey]);
+
   return (
     <div className={pageStyles}>
       <TopBar
@@ -91,7 +141,18 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
                 <p className={emptyStyles}>No messages yet. Say hello.</p>
               ) : (
                 entries.map((entry) => (
-                  <div className={entryStyles} key={entry.message.id}>
+                  <div
+                    className={entryStyles}
+                    data-message-id={entry.message.id}
+                    key={entry.message.id}
+                    ref={(element) => {
+                      if (element === null) {
+                        messageRefs.current.delete(entry.message.id);
+                      } else {
+                        messageRefs.current.set(entry.message.id, element);
+                      }
+                    }}
+                  >
                     <MessageView
                       authorName={memberName(entry.message.authorUserId)}
                       message={entry.message}
@@ -128,11 +189,13 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
             />
           )}
         </div>
-        <BranchGraphPanel
+        <ChatTreePanel
+          activeMessageIds={activeMessageIds}
           branches={Object.values(state.branches)}
-          currentBranchId={currentBranchId}
+          currentMessageId={focusedInTree}
+          members={state.members}
+          messages={Object.values(state.messages)}
           onSelectBranch={selectBranch}
-          ownerName={ownerName}
         />
       </div>
     </div>
@@ -148,7 +211,7 @@ const pageStyles = css({
 });
 
 // Below the header the space splits horizontally: the conversation column
-// (thread + composer) fills the room, the branch graph rides alongside it.
+// (thread + composer) fills the room, the conversation tree rides alongside it.
 const bodyStyles = css({
   display: "flex",
   flex: 1,

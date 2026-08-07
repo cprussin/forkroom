@@ -31,7 +31,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     state,
     leaf?.id ?? snapshot.chat.mainBranchId,
   );
-  const memberCount = Object.keys(state.members).length;
+  const members = Object.values(state.members);
 
   const memberName = (userId: string | undefined): string => {
     if (userId === undefined) {
@@ -68,7 +68,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
       <TopBar
         chatId={snapshot.chat.id}
         isCreator={snapshot.currentUserRole === "creator"}
-        memberCount={memberCount}
+        members={members}
         title={snapshot.chat.title}
       />
       {connected ? undefined : <ReconnectingBanner />}

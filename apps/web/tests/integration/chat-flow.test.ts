@@ -427,6 +427,66 @@ run("chat flow (integration)", () => {
     expect(mainAfter.length).toBe(mainMessages.length);
   });
 
+  it("rejects forking from a human user's message", async () => {
+    const creator = await newUser(db, "creator@test.dev");
+    const { chatId, mainBranchId } = await createChat(
+      { title: "Chat", userId: creator },
+      db,
+    );
+
+    const seeded = await submitPrompt(
+      {
+        body: {
+          content: "first",
+          expectedTipMessageId: null,
+          idempotencyKey: "seed",
+          selectedBranchId: mainBranchId,
+        },
+        chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+    const seededResponse = seeded.match({
+      Err: (error) => {
+        throw new Error(`seed failed ${error.code}`);
+      },
+      Ok: (value) => value,
+    });
+    await runGeneration(
+      seededResponse.generationId,
+      genDeps,
+      new AbortController().signal,
+      db,
+    );
+
+    const messages = await listMessages(db, chatId);
+    const userMessage = messages.find((m) => m.role === "user");
+    const currentTip = messages.at(-1);
+    const forkResult = await submitPrompt(
+      {
+        body: {
+          content: "off my own message",
+          expectedTipMessageId: currentTip?.id ?? null,
+          forkPointMessageId: userMessage?.id ?? null,
+          idempotencyKey: "user-fork",
+          selectedBranchId: mainBranchId,
+        },
+        chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+
+    const code = forkResult.match({
+      Err: (error) => error.code,
+      Ok: () => "ok",
+    });
+    expect(code).toBe("invalid_fork_point");
+  });
+
   it("lets the creator fork a branch owned by another member", async () => {
     const creator = await newUser(db, "creator@test.dev");
     const participant = await newUser(db, "participant@test.dev");

@@ -53,9 +53,11 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     setLeafBranchId(branchId);
   };
 
+  // Only assistant replies expose a fork action (MessageView withholds it on
+  // human messages), so a fork point is always the assistant's reply.
   const forkFromHere = (message: MessageEntity) => {
     setForkPoint({
-      label: forkPointLabel(message, memberName),
+      label: "the assistant's reply",
       messageId: message.id,
     });
   };
@@ -127,14 +129,6 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     </div>
   );
 };
-
-const forkPointLabel = (
-  message: MessageEntity,
-  memberName: (userId: string | undefined) => string,
-): string =>
-  message.role === "assistant"
-    ? "the assistant's reply"
-    : `${memberName(message.authorUserId)} message`;
 
 const pageStyles = css({
   blockSize: "100%",

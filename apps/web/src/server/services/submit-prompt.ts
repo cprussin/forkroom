@@ -10,7 +10,7 @@ import { withTransaction } from "../db/client";
 import type { Queryable } from "../db/pool";
 import { getPool } from "../db/pool";
 import { authorizeSubmission } from "../domain/authorization";
-import { SubmissionOutcome } from "../domain/branching";
+import { isForkableMessage, SubmissionOutcome } from "../domain/branching";
 import { deriveChatTitle } from "../domain/chat-title";
 import type { IdGenerator } from "../domain/ids";
 import { newId as defaultNewId } from "../domain/ids";
@@ -339,9 +339,10 @@ type ForkOrigin =
 
 /**
  * Where a fork branches from: an explicit `forkPointMessageId` names a
- * completed message anywhere in the chat's history (its branch becomes the
- * parent); otherwise the fork springs from the tip of the selected branch,
- * which must still match the tip the client saw.
+ * completed assistant reply anywhere in the chat's history (its branch becomes
+ * the parent) — forking off a human user's message is rejected; otherwise the
+ * fork springs from the tip of the selected branch, which must still match the
+ * tip the client saw.
  */
 const resolveForkOrigin = async (
   tx: Queryable,
@@ -368,7 +369,7 @@ const resolveForkOrigin = async (
     if (
       message === undefined ||
       message.chatId !== args.chatId ||
-      message.status !== "completed"
+      !isForkableMessage(message)
     ) {
       return { error: DomainErrors.invalidForkPoint(), ok: false };
     } else {

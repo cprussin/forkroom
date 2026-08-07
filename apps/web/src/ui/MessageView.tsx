@@ -17,7 +17,9 @@ type Props = {
 /**
  * A single message in the linear thread. Authorship, role, and generation
  * status are conveyed with text and icons — never color alone (PRD §6.5). A
- * completed message offers a "fork from here" action when one is provided.
+ * completed assistant reply offers a "fork from here" action when one is
+ * provided; a fork always branches off a model turn, never a human message,
+ * so the action is withheld on user and system messages.
  */
 export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
   const isAssistant = message.role === "assistant";
@@ -34,6 +36,7 @@ export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
         </span>
         <StatusTag status={message.status} />
         {onForkFromHere === undefined ||
+        !isAssistant ||
         message.status !== "completed" ? undefined : (
           <span className={actionsStyles}>
             <Button

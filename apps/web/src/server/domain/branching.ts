@@ -1,3 +1,5 @@
+import type { MessageRole, MessageStatus } from "../../contracts/chat-entities";
+
 /**
  * The two possible resolutions of a prompt submission. The submit transaction
  * turns `Append` / `Fork` into concrete row writes.
@@ -30,3 +32,13 @@ export const appendVsFork = (input: AppendVsForkInput): SubmissionOutcome =>
   input.ownsSelectedBranch && !input.explicitForkRequested
     ? SubmissionOutcome.Append
     : SubmissionOutcome.Fork;
+
+/**
+ * Whether a message may be named as an explicit fork point. A fork always
+ * branches off a completed assistant reply — never a human user's message (nor
+ * a system message) — so the parent of every fork is a model turn.
+ */
+export const isForkableMessage = (message: {
+  role: MessageRole;
+  status: MessageStatus;
+}): boolean => message.role === "assistant" && message.status === "completed";

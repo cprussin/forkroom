@@ -8,20 +8,37 @@ import { css, cx } from "../../styled-system/css";
 import type { MessageEntity } from "../contracts/chat-entities";
 import { Markdown } from "./Markdown";
 
+/** A message's place in a fork: its branch's label and 1-based position among
+ * the sibling variants, with a handler to switch to the next one. */
+type ForkChip = {
+  label: string;
+  position: string;
+  onSwitch: () => void;
+};
+
 type Props = {
   message: MessageEntity;
   authorName: string;
+  /** When this message is on a fork, a chip marking it and switching variants. */
+  forkChip?: ForkChip | undefined;
   onForkFromHere?: (() => void) | undefined;
 };
 
 /**
  * A single message in the linear thread. Authorship, role, and generation
  * status are conveyed with text and icons — never color alone (PRD §6.5). A
+ * message on a fork wears a chip naming its branch (and switching variants),
+ * so wherever you are in a branched reply it stays clear it's a fork. A
  * completed assistant reply offers a "fork from here" action when one is
  * provided; a fork always branches off a model turn, never a human message,
  * so the action is withheld on user and system messages.
  */
-export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
+export const MessageView = ({
+  message,
+  authorName,
+  forkChip,
+  onForkFromHere,
+}: Props) => {
   const isAssistant = message.role === "assistant";
   return (
     <article className={rootStyles} data-role={message.role}>
@@ -35,6 +52,18 @@ export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
           {isAssistant ? "Assistant" : authorName}
         </span>
         <StatusTag status={message.status} />
+        {forkChip === undefined ? undefined : (
+          <button
+            className={chipStyles}
+            onClick={forkChip.onSwitch}
+            title="Switch to the next version"
+            type="button"
+          >
+            <GitForkIcon weight="bold" />
+            <span>{forkChip.label}</span>
+            <span className={chipPositionStyles}>{forkChip.position}</span>
+          </button>
+        )}
         {onForkFromHere === undefined ||
         !isAssistant ||
         message.status !== "completed" ? undefined : (
@@ -110,6 +139,28 @@ const authorStyles = css({
 const actionsStyles = css({
   marginInlineStart: "auto",
 });
+
+const chipStyles = css({
+  _hover: {
+    backgroundColor:
+      "color-mix(in oklab, {colors.accent} 25%, {colors.background})",
+  },
+  alignItems: "center",
+  backgroundColor:
+    "color-mix(in oklab, {colors.accent} 15%, {colors.background})",
+  border: "1px solid color-mix(in oklab, {colors.accent} 30%, {colors.border})",
+  borderRadius: "full",
+  color: "accent",
+  cursor: "pointer",
+  display: "inline-flex",
+  fontSize: "xs",
+  fontWeight: "semibold",
+  gap: 1,
+  paddingBlock: 0.5,
+  paddingInline: 1.5,
+});
+
+const chipPositionStyles = css({ color: "muted", fontWeight: "normal" });
 
 const tagStyles = css({ color: "muted", fontSize: "xs" });
 const failedTagStyles = css({ color: "danger", fontWeight: "semibold" });

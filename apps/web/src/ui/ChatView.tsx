@@ -10,6 +10,7 @@ import { ChatTreePanel } from "./ChatTreePanel";
 import type { ForkPoint } from "./Composer";
 import { Composer } from "./Composer";
 import { ForkSwitcher } from "./ForkSwitcher";
+import { forkLabel } from "./fork-label";
 import { MessageView } from "./MessageView";
 import { ReconnectingBanner } from "./ReconnectingBanner";
 import { TopBar } from "./TopBar";
@@ -40,6 +41,12 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
   const currentBranchId = leaf?.id ?? snapshot.chat.mainBranchId;
   const entries = buildThreadView(state, currentBranchId);
   const members = Object.values(state.members);
+  // The fork the displayed branch springs from — its variants drive the chip
+  // shown on each of this branch's messages.
+  const leafFork =
+    leaf === undefined || leaf.isMain
+      ? undefined
+      : entries.find((entry) => entry.message.id === leaf.forkMessageId)?.fork;
   const activeMessageIds = entries.map((entry) => entry.message.id);
   // Stable key of the visible path, so the scroll observer re-binds only when
   // the set of on-screen messages actually changes.
@@ -66,6 +73,33 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
   const selectBranch = (branchId: string) => {
     setForkPoint(undefined);
     setLeafBranchId(branchId);
+  };
+
+  // A "on fork · N/M" chip for messages that live on the displayed branch (its
+  // diverged stretch), switching to the next sibling variant when clicked.
+  const forkChipFor = (message: MessageEntity) => {
+    if (
+      leaf === undefined ||
+      leafFork === undefined ||
+      message.branchId !== leaf.id
+    ) {
+      return undefined;
+    } else {
+      const count = leafFork.variants.length;
+      const activeIndex = leafFork.variants.findIndex(
+        (variant) => variant.branchId === leafFork.activeBranchId,
+      );
+      const next = leafFork.variants[(activeIndex + 1) % count];
+      return {
+        label: forkLabel(memberName(leaf.ownerUserId)),
+        onSwitch: () => {
+          if (next !== undefined) {
+            selectBranch(next.branchId);
+          }
+        },
+        position: `${(activeIndex + 1).toString()}/${count.toString()}`,
+      };
+    }
   };
 
   // Picking a node in the tree switches to its branch and scrolls that exact
@@ -193,6 +227,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
                   >
                     <MessageView
                       authorName={memberName(entry.message.authorUserId)}
+                      forkChip={forkChipFor(entry.message)}
                       message={entry.message}
                       onForkFromHere={() => {
                         forkFromHere(entry.message);

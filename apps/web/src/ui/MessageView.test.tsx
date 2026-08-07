@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { MessageEntity } from "../contracts/chat-entities";
 import { MessageView } from "./MessageView";
 
@@ -41,5 +41,29 @@ describe("MessageView", () => {
     expect(
       screen.queryByRole("button", { name: /fork from here/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows a fork chip and switches variant when it is clicked", () => {
+    const switches: number[] = [];
+    render(
+      <MessageView
+        authorName="Alice"
+        forkChip={{
+          label: "Alice's fork",
+          onSwitch: () => switches.push(1),
+          position: "2/3",
+        }}
+        message={message({})}
+      />,
+    );
+    const chip = screen.getByRole("button", { name: /Alice's fork/ });
+    expect(chip).toHaveTextContent("2/3");
+    fireEvent.click(chip);
+    expect(switches).toEqual([1]);
+  });
+
+  it("shows no fork chip when the message is not on a fork", () => {
+    render(<MessageView authorName="Alice" message={message({})} />);
+    expect(screen.queryByText(/fork/i)).not.toBeInTheDocument();
   });
 });

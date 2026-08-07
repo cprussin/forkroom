@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { css } from "../../styled-system/css";
+import { buildBranchTree } from "../client/branch-tree";
 import { buildThreadView } from "../client/thread-view";
 import { useChatStream } from "../client/use-chat-stream";
 import type { MessageEntity } from "../contracts/chat-entities";
@@ -27,11 +28,10 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
 
   const leaf =
     state.branches[leafBranchId] ?? state.branches[snapshot.chat.mainBranchId];
-  const entries = buildThreadView(
-    state,
-    leaf?.id ?? snapshot.chat.mainBranchId,
-  );
+  const currentBranchId = leaf?.id ?? snapshot.chat.mainBranchId;
+  const entries = buildThreadView(state, currentBranchId);
   const members = Object.values(state.members);
+  const branchTree = buildBranchTree(Object.values(state.branches));
 
   const memberName = (userId: string | undefined): string => {
     if (userId === undefined) {
@@ -71,9 +71,13 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
   return (
     <div className={pageStyles}>
       <TopBar
+        branchTree={branchTree}
         chatId={snapshot.chat.id}
+        currentBranchId={currentBranchId}
         isCreator={snapshot.currentUserRole === "creator"}
         members={members}
+        onSelectBranch={selectBranch}
+        ownerName={ownerName}
         title={snapshot.chat.title}
       />
       {connected ? undefined : <ReconnectingBanner />}

@@ -76,7 +76,7 @@ describe("ChatTreePanel", () => {
         currentMessageId="m2"
         members={members}
         messages={messages}
-        onSelectBranch={() => undefined}
+        onSelectMessage={() => undefined}
       />,
     );
     expect(screen.getAllByRole("button")).toHaveLength(4);
@@ -86,8 +86,8 @@ describe("ChatTreePanel", () => {
     expect(screen.getByRole("button", { name: "Bob" })).toBeInTheDocument();
   });
 
-  it("navigates to a message's branch when its node is chosen", () => {
-    const selected: string[] = [];
+  it("jumps to a message and its branch when its node is chosen", () => {
+    const selected: [string, string][] = [];
     render(
       <ChatTreePanel
         activeMessageIds={["m1", "m2"]}
@@ -95,13 +95,13 @@ describe("ChatTreePanel", () => {
         currentMessageId="m2"
         members={members}
         messages={messages}
-        onSelectBranch={(branchId) => {
-          selected.push(branchId);
+        onSelectMessage={(branchId, messageId) => {
+          selected.push([branchId, messageId]);
         }}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Bob" }));
-    expect(selected).toEqual(["forkB"]);
+    expect(selected).toEqual([["forkB", "b1"]]);
   });
 
   it("marks the message currently in focus and no other", () => {
@@ -112,7 +112,7 @@ describe("ChatTreePanel", () => {
         currentMessageId="a1"
         members={members}
         messages={messages}
-        onSelectBranch={() => undefined}
+        onSelectMessage={() => undefined}
       />,
     );
     expect(screen.getByRole("button", { name: "Alice" })).toHaveAttribute(
@@ -132,7 +132,7 @@ describe("ChatTreePanel", () => {
         currentMessageId="m1"
         members={members}
         messages={[message("m1", "main", 1, "user", "dana")]}
-        onSelectBranch={() => undefined}
+        onSelectMessage={() => undefined}
       />,
     );
     expect(container).toBeEmptyDOMElement();

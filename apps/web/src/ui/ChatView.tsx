@@ -27,8 +27,13 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
   const [focusedMessageId, setFocusedMessageId] = useState<string | undefined>(
     undefined,
   );
+  const [pendingScrollId, setPendingScrollId] = useState<string | undefined>(
+    undefined,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const previousLengthRef = useRef(0);
+  const jumpPendingRef = useRef(false);
 
   const leaf =
     state.branches[leafBranchId] ?? state.branches[snapshot.chat.mainBranchId];
@@ -63,6 +68,16 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     setLeafBranchId(branchId);
   };
 
+  // Picking a node in the tree switches to its branch and scrolls that exact
+  // message into view — highlighting it at once for immediate feedback, and
+  // suppressing the keep-newest-in-view scroll so it doesn't fight the jump.
+  const jumpToMessage = (branchId: string, messageId: string) => {
+    jumpPendingRef.current = true;
+    setFocusedMessageId(messageId);
+    selectBranch(branchId);
+    setPendingScrollId(messageId);
+  };
+
   // Only assistant replies expose a fork action (MessageView withholds it on
   // human messages), so a fork point is always the assistant's reply.
   const forkFromHere = (message: MessageEntity) => {
@@ -72,49 +87,72 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     });
   };
 
-  // Keep the newest message in view as the thread grows.
+  // Keep the newest message in view as the thread grows — but not when a node
+  // jump is steering the scroll somewhere specific.
   useEffect(() => {
     const node = scrollRef.current;
-    if (node !== null && entries.length > 0) {
+    const grew = entries.length > previousLengthRef.current;
+    previousLengthRef.current = entries.length;
+    if (node !== null && grew && !jumpPendingRef.current) {
       node.scrollTo({ behavior: "smooth", top: node.scrollHeight });
     }
   }, [entries.length]);
 
-  // Track which message is in focus as the thread scrolls, so the tree's
-  // highlight follows the reader. The topmost message still intersecting the
-  // upper part of the viewport wins.
+  // After a node jump re-renders the (possibly switched) thread, bring the
+  // chosen message into view.
   useEffect(() => {
-    const root = scrollRef.current;
+    if (pendingScrollId !== undefined) {
+      const element = messageRefs.current.get(pendingScrollId);
+      if (element !== undefined) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      jumpPendingRef.current = false;
+      setPendingScrollId(undefined);
+    }
+  }, [pendingScrollId]);
+
+  // Track which message is in focus as the thread scrolls, so the tree's
+  // highlight follows the reader. The focus line slides from the top of the
+  // viewport toward the bottom as you scroll down, so the last message becomes
+  // focused once you reach the end.
+  useEffect(() => {
+    const container = scrollRef.current;
     const ids = threadKey.length === 0 ? [] : threadKey.split("|");
-    if (root === null || ids.length === 0) {
+    if (container === null || ids.length === 0) {
       return undefined;
     } else {
-      const tops = new Map<string, number>();
-      const observer = new IntersectionObserver(
-        (records) => {
-          for (const record of records) {
-            const id = record.target.getAttribute("data-message-id");
-            if (id !== null && record.isIntersecting) {
-              tops.set(id, record.boundingClientRect.top);
-            } else if (id !== null) {
-              tops.delete(id);
+      const update = () => {
+        const containerTop = container.getBoundingClientRect().top;
+        const scrollable = container.scrollHeight - container.clientHeight;
+        const progress = scrollable <= 0 ? 0 : container.scrollTop / scrollable;
+        const focusLine = progress * container.clientHeight;
+        let crossedId: string | undefined;
+        let crossedTop = Number.NEGATIVE_INFINITY;
+        let firstId: string | undefined;
+        let firstTop = Number.POSITIVE_INFINITY;
+        for (const id of ids) {
+          const element = messageRefs.current.get(id);
+          if (element !== undefined) {
+            const top = element.getBoundingClientRect().top - containerTop;
+            if (top < firstTop) {
+              firstTop = top;
+              firstId = id;
+            }
+            if (top <= focusLine && top > crossedTop) {
+              crossedTop = top;
+              crossedId = id;
             }
           }
-          const topmost = [...tops].sort((a, b) => a[1] - b[1])[0];
-          if (topmost !== undefined) {
-            setFocusedMessageId(topmost[0]);
-          }
-        },
-        { root, rootMargin: "0px 0px -55% 0px", threshold: 0 },
-      );
-      for (const id of ids) {
-        const element = messageRefs.current.get(id);
-        if (element !== undefined) {
-          observer.observe(element);
         }
-      }
+        const focus = crossedId ?? firstId;
+        if (focus !== undefined) {
+          setFocusedMessageId(focus);
+        }
+      };
+      update();
+      container.addEventListener("scroll", update, { passive: true });
       return () => {
-        observer.disconnect();
+        container.removeEventListener("scroll", update);
       };
     }
   }, [threadKey]);
@@ -195,7 +233,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
           currentMessageId={focusedInTree}
           members={state.members}
           messages={Object.values(state.messages)}
-          onSelectBranch={selectBranch}
+          onSelectMessage={jumpToMessage}
         />
       </div>
     </div>

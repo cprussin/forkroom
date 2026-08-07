@@ -20,14 +20,16 @@ type Props = {
   activeMessageIds: string[];
   /** The message in focus (e.g. scrolled into view), highlighted strongly. */
   currentMessageId: string | undefined;
-  onSelectBranch: (branchId: string) => void;
+  onSelectMessage: (branchId: string, messageId: string) => void;
 };
 
-// Drawing geometry, in SVG user units.
-const CELL = 34;
-const COL_PITCH = 40;
-const ROW_PITCH = 52;
-const PAD = 16;
+// Drawing geometry, in SVG user units. Cells leave room around each avatar so
+// the focused node can grow and glow without clipping or colliding.
+const CELL = 48;
+const COL_PITCH = 52;
+const ROW_PITCH = 64;
+const PAD = 20;
+const PREVIEW_LIMIT = 200;
 
 const cellX = (column: number): number => PAD + column * COL_PITCH;
 const cellY = (depth: number): number => PAD + depth * ROW_PITCH;
@@ -38,8 +40,8 @@ const centerY = (depth: number): number => cellY(depth) + CELL / 2;
  * A right-hand overview of the whole conversation as a tree: every message is a
  * node — assistant replies included — chained top to bottom, and a message that
  * was forked spreads its continuations across horizontal sibling columns. Nodes
- * are the authors' avatars; clicking one jumps to that branch's thread. The
- * message currently in focus is highlighted, and the active thread is traced,
+ * are the authors' avatars; hovering one previews the message, clicking one
+ * jumps to it. The message in focus is highlighted and the active thread traced,
  * so the tree tracks where you are as you scroll. Hidden until the chat forks.
  */
 export const ChatTreePanel = ({
@@ -48,10 +50,13 @@ export const ChatTreePanel = ({
   members,
   activeMessageIds,
   currentMessageId,
-  onSelectBranch,
+  onSelectMessage,
 }: Props) => {
   if (chatHasForks(branches)) {
     const tree = buildChatTree(messages, branches);
+    const messageById = new Map(
+      messages.map((message) => [message.id, message]),
+    );
     const width = PAD * 2 + tree.maxColumn * COL_PITCH + CELL;
     const height = PAD * 2 + tree.maxDepth * ROW_PITCH + CELL;
     const activeIds = new Set(activeMessageIds);
@@ -106,8 +111,9 @@ export const ChatTreePanel = ({
                     }
                     data-onpath={activeIds.has(node.messageId) ? "" : undefined}
                     onClick={() => {
-                      onSelectBranch(node.branchId);
+                      onSelectMessage(node.branchId, node.messageId);
                     }}
+                    title={previewOf(messageById.get(node.messageId))}
                     type="button"
                   >
                     <NodeAvatar members={members} node={node} />
@@ -134,7 +140,7 @@ const NodeAvatar = ({
 }) => {
   if (node.role === "assistant") {
     return (
-      <Avatar icon={<RobotIcon weight="fill" />} name="Assistant" size="2xs" />
+      <Avatar icon={<RobotIcon weight="fill" />} name="Assistant" size="xs" />
     );
   } else {
     const member =
@@ -142,7 +148,7 @@ const NodeAvatar = ({
     return (
       <Avatar
         name={member?.displayName ?? "A member"}
-        size="2xs"
+        size="xs"
         src={member?.avatarUrl}
       />
     );
@@ -159,6 +165,25 @@ const authorLabel = (
     const member =
       node.authorUserId === undefined ? undefined : members[node.authorUserId];
     return member?.displayName ?? "A member";
+  }
+};
+
+// The hover preview of a node's message — its text, trimmed, or a status stand-in
+// while it has none yet.
+const previewOf = (message: MessageEntity | undefined): string => {
+  if (message === undefined) {
+    return "";
+  } else {
+    const text = message.content.trim();
+    if (text.length === 0) {
+      return message.status === "failed"
+        ? "Failed to generate."
+        : "Generating…";
+    } else if (text.length > PREVIEW_LIMIT) {
+      return `${text.slice(0, PREVIEW_LIMIT)}…`;
+    } else {
+      return text;
+    }
   }
 };
 
@@ -203,11 +228,20 @@ const cellStyles = center({ blockSize: "100%", inlineSize: "100%" });
 
 const nodeStyles = css({
   "&:focus-visible": {
-    boxShadow: "0 0 0 {spacing.0.5} {colors.accent}",
+    boxShadow: "0 0 0 {spacing.1} {colors.accent}",
     outlineStyle: "none",
   },
-  "&:hover": { boxShadow: "0 0 0 {spacing.0.5} {colors.accent}" },
-  "&[data-current]": { boxShadow: "0 0 0 {spacing.0.5} {colors.accent}" },
+  "&:hover:not([data-current])": {
+    boxShadow: "0 0 0 {spacing.0.5} {colors.accent}",
+    transform: "scale(1.1)",
+  },
+  // The focused node is unmistakable: it grows, gains a thick accent ring, and
+  // throws an accent glow. On-path nodes wear a quiet ring; off-path, none.
+  "&[data-current]": {
+    boxShadow:
+      "0 0 0 {spacing.1} {colors.accent}, 0 0 {spacing.3} {spacing.0.5} color-mix(in oklab, {colors.accent} 60%, transparent)",
+    transform: "scale(1.22)",
+  },
   "&[data-onpath]:not([data-current])": {
     boxShadow: "0 0 0 {spacing.0.5} {colors.borderStrong}",
   },
@@ -217,4 +251,6 @@ const nodeStyles = css({
   cursor: "pointer",
   display: "inline-flex",
   padding: 0,
+  transition:
+    "transform {durations.fast} {easings.out}, box-shadow {durations.fast} {easings.out}",
 });

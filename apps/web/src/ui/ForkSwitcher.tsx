@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@forkroom/component-library/Avatar";
 import { Button } from "@forkroom/component-library/Button";
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/ssr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/ssr/CaretRight";
@@ -9,15 +10,24 @@ import type { ForkSwitch, ForkVariant } from "../client/thread-view";
 type Props = {
   fork: ForkSwitch;
   memberName: (userId: string | undefined) => string;
+  /** The owner's own display name, used for avatar initials — unlike
+   * `memberName` it never substitutes "You" or a role placeholder. */
+  ownerName: (userId: string) => string;
   onSelectBranch: (branchId: string) => void;
 };
 
 /**
- * ChatGPT-style variant navigation for a forked message: step through the
- * branches that continue from this point — the trunk plus every collaborator's
- * fork — switching the displayed thread to the chosen one.
+ * ChatGPT-style variant navigation for a forked message: a facepile showing
+ * who continues past this point — the trunk plus every collaborator's fork —
+ * with carets to step through them and switch the displayed thread. The active
+ * variant's owner is emphasised in the facepile.
  */
-export const ForkSwitcher = ({ fork, memberName, onSelectBranch }: Props) => {
+export const ForkSwitcher = ({
+  fork,
+  memberName,
+  ownerName,
+  onSelectBranch,
+}: Props) => {
   const activeIndex = fork.variants.findIndex(
     (variant) => variant.branchId === fork.activeBranchId,
   );
@@ -27,6 +37,28 @@ export const ForkSwitcher = ({ fork, memberName, onSelectBranch }: Props) => {
 
   return (
     <div aria-label="Switch forks" className={rootStyles} role="group">
+      <span className={facepileStyles}>
+        {fork.variants.map((variant) => {
+          const isActive = variant.branchId === fork.activeBranchId;
+          const label = variantLabel(variant, memberName);
+          return (
+            <button
+              aria-current={isActive ? "true" : undefined}
+              aria-label={label}
+              className={avatarSlotStyles}
+              data-active={isActive ? "" : undefined}
+              key={variant.branchId}
+              onClick={() => {
+                onSelectBranch(variant.branchId);
+              }}
+              title={label}
+              type="button"
+            >
+              <Avatar name={ownerName(variant.ownerUserId)} size="2xs" />
+            </button>
+          );
+        })}
+      </span>
       <Button
         disabled={previous === undefined}
         label="Previous fork"
@@ -76,6 +108,42 @@ const rootStyles = css({
   display: "flex",
   gap: 1,
   paddingInline: 1,
+});
+
+const facepileStyles = css({
+  alignItems: "center",
+  display: "flex",
+  marginInlineEnd: 1,
+});
+
+const avatarSlotStyles = css({
+  "&:first-child": { marginInlineStart: 0 },
+  // Hovering a non-active avatar previews its selectability by lifting it and
+  // clearing the dimming.
+  "&:hover:not([data-active])": {
+    opacity: 0.8,
+    zIndex: 1,
+  },
+  "&[data-active]": {
+    // Lift the active avatar above its neighbours so the overlap never dims
+    // or clips it, and keep it fully opaque.
+    opacity: 1,
+    outlineColor: "accent",
+    zIndex: 2,
+  },
+  backgroundColor: "transparent",
+  borderRadius: "full",
+  borderStyle: "none",
+  cursor: "pointer",
+  display: "inline-flex",
+  marginInlineStart: -1.5,
+  opacity: 0.5,
+  outlineColor: "background",
+  outlineStyle: "solid",
+  outlineWidth: 2,
+  padding: 0,
+  position: "relative",
+  transition: "opacity {durations.fast} {easings.out}",
 });
 
 const labelStyles = css({

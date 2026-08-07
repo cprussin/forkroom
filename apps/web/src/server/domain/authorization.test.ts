@@ -29,59 +29,39 @@ describe("authorizeSubmission (authorization matrix §11)", () => {
   it("rejects non-members", () => {
     expect(
       outcomeOf({
+        explicitForkRequested: false,
         membership: NON_MEMBER,
         ownsSelectedBranch: false,
-        selectedIsMain: true,
       }),
     ).toStrictEqual({ denial: SubmissionDenialReason.NotMember });
   });
 
-  it("lets the creator append on main", () => {
+  it("appends when a member owns the selected branch", () => {
     expect(
       outcomeOf({
+        explicitForkRequested: false,
         membership: Role.Creator,
         ownsSelectedBranch: true,
-        selectedIsMain: true,
       }),
     ).toStrictEqual({ mode: SubmissionOutcome.Append });
   });
 
-  it("blocks the creator from composing on a participant branch", () => {
+  it("forks when a member submits on a branch they do not own", () => {
     expect(
       outcomeOf({
-        membership: Role.Creator,
-        ownsSelectedBranch: false,
-        selectedIsMain: false,
-      }),
-    ).toStrictEqual({ denial: SubmissionDenialReason.CreatorOffMain });
-  });
-
-  it("forks a participant submitting from main", () => {
-    expect(
-      outcomeOf({
+        explicitForkRequested: false,
         membership: Role.Participant,
         ownsSelectedBranch: false,
-        selectedIsMain: true,
       }),
     ).toStrictEqual({ mode: SubmissionOutcome.Fork });
   });
 
-  it("appends a participant continuing their own branch", () => {
+  it("forks from an owned branch when an explicit fork point is named", () => {
     expect(
       outcomeOf({
-        membership: Role.Participant,
+        explicitForkRequested: true,
+        membership: Role.Creator,
         ownsSelectedBranch: true,
-        selectedIsMain: false,
-      }),
-    ).toStrictEqual({ mode: SubmissionOutcome.Append });
-  });
-
-  it("forks a participant submitting from another user's branch", () => {
-    expect(
-      outcomeOf({
-        membership: Role.Participant,
-        ownsSelectedBranch: false,
-        selectedIsMain: false,
       }),
     ).toStrictEqual({ mode: SubmissionOutcome.Fork });
   });
@@ -115,46 +95,26 @@ describe("authorizeRetry (§11)", () => {
     });
 
   it("rejects non-members", () => {
-    expect(
-      retryReason({
-        isMainBranch: true,
-        membership: NON_MEMBER,
-        ownsBranch: false,
-      }),
-    ).toBe(RetryDenialReason.NotMember);
+    expect(retryReason({ membership: NON_MEMBER, ownsBranch: false })).toBe(
+      RetryDenialReason.NotMember,
+    );
   });
 
-  it("lets the creator retry only on main", () => {
+  it("lets any member retry on a branch they own", () => {
+    expect(retryReason({ membership: Role.Creator, ownsBranch: true })).toBe(
+      "ok",
+    );
     expect(
-      retryReason({
-        isMainBranch: true,
-        membership: Role.Creator,
-        ownsBranch: true,
-      }),
+      retryReason({ membership: Role.Participant, ownsBranch: true }),
     ).toBe("ok");
-    expect(
-      retryReason({
-        isMainBranch: false,
-        membership: Role.Creator,
-        ownsBranch: false,
-      }),
-    ).toBe(RetryDenialReason.Forbidden);
   });
 
-  it("lets a participant retry only on a branch they own", () => {
+  it("forbids retrying a generation on a branch the member does not own", () => {
+    expect(retryReason({ membership: Role.Creator, ownsBranch: false })).toBe(
+      RetryDenialReason.Forbidden,
+    );
     expect(
-      retryReason({
-        isMainBranch: false,
-        membership: Role.Participant,
-        ownsBranch: true,
-      }),
-    ).toBe("ok");
-    expect(
-      retryReason({
-        isMainBranch: false,
-        membership: Role.Participant,
-        ownsBranch: false,
-      }),
+      retryReason({ membership: Role.Participant, ownsBranch: false }),
     ).toBe(RetryDenialReason.Forbidden);
   });
 });

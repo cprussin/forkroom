@@ -9,10 +9,7 @@ import type {
 import { withTransaction } from "../db/client";
 import type { Queryable } from "../db/pool";
 import { getPool } from "../db/pool";
-import {
-  authorizeSubmission,
-  SubmissionDenialReason,
-} from "../domain/authorization";
+import { authorizeSubmission } from "../domain/authorization";
 import { SubmissionOutcome } from "../domain/branching";
 import type { IdGenerator } from "../domain/ids";
 import { newId as defaultNewId } from "../domain/ids";
@@ -28,7 +25,11 @@ import {
 } from "../repositories/generations";
 import { enqueueGenerationJob } from "../repositories/jobs";
 import { getMemberRole } from "../repositories/members";
-import { insertMessage, nextSequenceNumber } from "../repositories/messages";
+import {
+  getMessage,
+  insertMessage,
+  nextSequenceNumber,
+} from "../repositories/messages";
 import { appendOutboxEvent } from "../repositories/outbox";
 import {
   findPromptRequest,
@@ -133,46 +134,32 @@ const runFreshSubmission = async (
     return Err(DomainErrors.branchNotFound());
   }
 
+  const forkPointMessageId = body.forkPointMessageId ?? undefined;
   const authorized = authorizeSubmission({
+    explicitForkRequested: forkPointMessageId !== undefined,
     membership,
     ownsSelectedBranch: selected.ownerUserId === userId,
-    selectedIsMain: selected.isMain,
   }).match<AuthorizedSubmission>({
-    Err: (denial) => ({
-      error:
-        denial.reason === SubmissionDenialReason.NotMember
-          ? DomainErrors.notMember()
-          : DomainErrors.creatorOffMain(),
-      ok: false,
-    }),
+    Err: () => ({ error: DomainErrors.notMember(), ok: false }),
     Ok: (mode) => ({ mode, ok: true }),
   });
   if (!authorized.ok) {
     return Err(authorized.error);
   }
-  const outcome = authorized.mode;
 
-  const currentTip = await getBranchTip(tx, chatId, body.selectedBranchId);
-  const expectedTip = body.expectedTipMessageId ?? undefined;
-  if (currentTip !== expectedTip) {
-    return Err(DomainErrors.staleTip());
-  }
-
-  if (outcome === SubmissionOutcome.Append) {
-    const active = await hasActiveGeneration(tx, selected.id);
-    if (active) {
-      return Err(DomainErrors.generationInProgress());
-    }
-  }
-
-  const plan = await planTarget(tx, {
+  const planned = await planTarget(tx, {
     chatId,
-    forkPoint: currentTip,
+    expectedTip: body.expectedTipMessageId ?? undefined,
+    forkPointMessageId,
     mint,
-    outcome,
+    outcome: authorized.mode,
     selected,
     userId,
   });
+  if (!planned.ok) {
+    return Err(planned.error);
+  }
+  const plan = planned.plan;
 
   const seq = await nextSequenceNumber(tx, plan.targetBranchId);
   const userMessage = await insertMessage(tx, {
@@ -272,6 +259,16 @@ type TargetPlan = {
   responseForkMessageId: string | undefined;
 };
 
+type PlannedTarget =
+  | { ok: true; plan: TargetPlan }
+  | { ok: false; error: DomainError };
+
+/**
+ * Resolve where a submission lands. An append validates the branch tip is
+ * unchanged and idle, then targets the selected branch. A fork springs a new
+ * branch from either the tip of the selected branch (implicit) or a named
+ * message in history (explicit `forkPointMessageId`).
+ */
 const planTarget = async (
   tx: Queryable,
   args: {
@@ -279,37 +276,101 @@ const planTarget = async (
     userId: string;
     selected: BranchEntity;
     outcome: SubmissionOutcome;
-    forkPoint: string | undefined;
+    expectedTip: string | undefined;
+    forkPointMessageId: string | undefined;
     mint: IdGenerator;
   },
-): Promise<TargetPlan> => {
+): Promise<PlannedTarget> => {
   switch (args.outcome) {
     case SubmissionOutcome.Append: {
-      return {
-        branchCreated: undefined,
-        responseForkMessageId: args.selected.forkMessageId,
-        responseParentBranchId: args.selected.parentBranchId,
-        targetBranchId: args.selected.id,
-      };
+      const currentTip = await getBranchTip(tx, args.chatId, args.selected.id);
+      if (currentTip !== args.expectedTip) {
+        return { error: DomainErrors.staleTip(), ok: false };
+      } else if (await hasActiveGeneration(tx, args.selected.id)) {
+        return { error: DomainErrors.generationInProgress(), ok: false };
+      } else {
+        return {
+          ok: true,
+          plan: {
+            branchCreated: undefined,
+            responseForkMessageId: args.selected.forkMessageId,
+            responseParentBranchId: args.selected.parentBranchId,
+            targetBranchId: args.selected.id,
+          },
+        };
+      }
     }
     case SubmissionOutcome.Fork: {
-      const branch = await insertBranch(tx, {
-        chatId: args.chatId,
-        createdByUserId: args.userId,
-        forkMessageId: args.forkPoint,
-        id: args.mint(),
-        ownerUserId: args.userId,
-        parentBranchId: args.selected.id,
-      });
-      return {
-        branchCreated: branch,
-        responseForkMessageId: args.forkPoint,
-        responseParentBranchId: args.selected.id,
-        targetBranchId: branch.id,
-      };
+      const origin = await resolveForkOrigin(tx, args);
+      if (origin.ok) {
+        const branch = await insertBranch(tx, {
+          chatId: args.chatId,
+          createdByUserId: args.userId,
+          forkMessageId: origin.forkPoint,
+          id: args.mint(),
+          ownerUserId: args.userId,
+          parentBranchId: origin.parentBranchId,
+        });
+        return {
+          ok: true,
+          plan: {
+            branchCreated: branch,
+            responseForkMessageId: origin.forkPoint,
+            responseParentBranchId: origin.parentBranchId,
+            targetBranchId: branch.id,
+          },
+        };
+      } else {
+        return origin;
+      }
     }
-    case SubmissionOutcome.CreatorMustReturnToMain: {
-      throw new Error("unreachable: creator-off-main handled before planning");
+  }
+};
+
+type ForkOrigin =
+  | { ok: true; parentBranchId: string; forkPoint: string | undefined }
+  | { ok: false; error: DomainError };
+
+/**
+ * Where a fork branches from: an explicit `forkPointMessageId` names a
+ * completed message anywhere in the chat's history (its branch becomes the
+ * parent); otherwise the fork springs from the tip of the selected branch,
+ * which must still match the tip the client saw.
+ */
+const resolveForkOrigin = async (
+  tx: Queryable,
+  args: {
+    chatId: string;
+    selected: BranchEntity;
+    expectedTip: string | undefined;
+    forkPointMessageId: string | undefined;
+  },
+): Promise<ForkOrigin> => {
+  if (args.forkPointMessageId === undefined) {
+    const currentTip = await getBranchTip(tx, args.chatId, args.selected.id);
+    if (currentTip === args.expectedTip) {
+      return {
+        forkPoint: currentTip,
+        ok: true,
+        parentBranchId: args.selected.id,
+      };
+    } else {
+      return { error: DomainErrors.staleTip(), ok: false };
+    }
+  } else {
+    const message = await getMessage(tx, args.forkPointMessageId);
+    if (
+      message === undefined ||
+      message.chatId !== args.chatId ||
+      message.status !== "completed"
+    ) {
+      return { error: DomainErrors.invalidForkPoint(), ok: false };
+    } else {
+      return {
+        forkPoint: message.id,
+        ok: true,
+        parentBranchId: message.branchId,
+      };
     }
   }
 };

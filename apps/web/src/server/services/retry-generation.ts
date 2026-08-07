@@ -37,7 +37,6 @@ export const retryGeneration = (
 
     const role = await getMemberRole(tx, input.chatId, input.userId);
     const denied = authorizeRetry({
-      isMainBranch: branch.isMain,
       membership: role,
       ownsBranch: branch.ownerUserId === input.userId,
     }).match<DomainError | undefined>({

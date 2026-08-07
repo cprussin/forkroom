@@ -4,10 +4,16 @@ import { z } from "zod";
  * Prompt submission request body. The client supplies the branch its composer
  * is scoped to and the tip message it believes is current; the server decides
  * append vs fork and rejects a stale tip. `idempotencyKey` makes retries safe.
+ *
+ * `forkPointMessageId`, when present, forks a new branch from that message in
+ * history rather than appending or forking at the tip — the "fork from any
+ * point" capability. Absent (the common case) leaves the append-vs-fork
+ * decision to branch ownership.
  */
 export const submitPromptRequestSchema = z.object({
   content: z.string().min(1),
   expectedTipMessageId: z.string().nullable(),
+  forkPointMessageId: z.string().nullish(),
   idempotencyKey: z.string().min(1).max(200),
   selectedBranchId: z.string(),
 });

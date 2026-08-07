@@ -21,16 +21,16 @@ const make =
 export const DomainErrors = {
   branchNotFound: make("branch_not_found", 404, "Branch not found"),
   chatNotFound: make("chat_not_found", 404, "Chat not found"),
-  creatorOffMain: make(
-    "creator_must_use_main",
-    409,
-    "Return to the main branch to compose",
-  ),
   forbidden: make("forbidden", 403, "Not permitted"),
   generationInProgress: make(
     "generation_in_progress",
     409,
     "A response is already generating on this branch",
+  ),
+  invalidForkPoint: make(
+    "invalid_fork_point",
+    422,
+    "Cannot fork from that message",
   ),
   inviteExhausted: make("invite_exhausted", 410, "Invitation is used up"),
   inviteExpired: make("invite_expired", 410, "Invitation has expired"),

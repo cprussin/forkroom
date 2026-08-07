@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { createMockModel } from "../../src/server/generation/model/mock";
 import type { ChatModel } from "../../src/server/generation/model/provider";
 import { runGeneration } from "../../src/server/generation/run-generation";
+import { getBranch } from "../../src/server/repositories/branches";
 import { getChatMeta } from "../../src/server/repositories/chats";
 import { getMemberRole } from "../../src/server/repositories/members";
 import { listMessages } from "../../src/server/repositories/messages";
@@ -254,6 +255,161 @@ run("chat flow (integration)", () => {
     });
     expect(continued.mode).toBe("appended");
     expect(continued.branchId).toBe(forked.branchId);
+  });
+
+  it("forks from a chosen point in history, leaving later messages intact", async () => {
+    const creator = await newUser(db, "creator@test.dev");
+    const { chatId, mainBranchId } = await createChat(
+      { title: "Chat", userId: creator },
+      db,
+    );
+
+    // Creator seeds main with two exchanges.
+    const runExchange = async (content: string, key: string) => {
+      const tip = (await listMessages(db, chatId))
+        .filter((m) => m.branchId === mainBranchId)
+        .at(-1);
+      const result = await submitPrompt(
+        {
+          body: {
+            content,
+            expectedTipMessageId: tip?.id ?? null,
+            idempotencyKey: key,
+            selectedBranchId: mainBranchId,
+          },
+          chatId,
+          userId: creator,
+        },
+        deps,
+        db,
+      );
+      const response = result.match({
+        Err: (error) => {
+          throw new Error(`submit failed ${error.code}`);
+        },
+        Ok: (value) => value,
+      });
+      await runGeneration(
+        response.generationId,
+        genDeps,
+        new AbortController().signal,
+        db,
+      );
+    };
+    await runExchange("first", "e1");
+    await runExchange("second", "e2");
+
+    const mainMessages = (await listMessages(db, chatId)).filter(
+      (m) => m.branchId === mainBranchId,
+    );
+    // Fork from the first assistant reply, before the second exchange.
+    const firstAssistant = mainMessages.find(
+      (m) => m.role === "assistant" && m.status === "completed",
+    );
+    const currentTip = mainMessages.at(-1);
+    const forkResult = await submitPrompt(
+      {
+        body: {
+          content: "a different direction",
+          expectedTipMessageId: currentTip?.id ?? null,
+          forkPointMessageId: firstAssistant?.id ?? null,
+          idempotencyKey: "history-fork",
+          selectedBranchId: mainBranchId,
+        },
+        chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+    const forked = forkResult.match({
+      Err: (error) => {
+        throw new Error(`history fork failed ${error.code}`);
+      },
+      Ok: (value) => value,
+    });
+
+    expect(forked.mode).toBe("forked");
+    expect(forked.branchId).not.toBe(mainBranchId);
+    expect(forked.parentBranchId).toBe(mainBranchId);
+    expect(forked.forkMessageId).toBe(firstAssistant?.id ?? null);
+    // Main keeps both of its exchanges (4 messages) — the fork is additive.
+    const mainAfter = (await listMessages(db, chatId)).filter(
+      (m) => m.branchId === mainBranchId,
+    );
+    expect(mainAfter.length).toBe(mainMessages.length);
+  });
+
+  it("lets the creator fork a branch owned by another member", async () => {
+    const creator = await newUser(db, "creator@test.dev");
+    const participant = await newUser(db, "participant@test.dev");
+    const { chatId, mainBranchId } = await createChat(
+      { title: "Chat", userId: creator },
+      db,
+    );
+    const invite = await createInvite({ chatId, userId: creator }, db);
+    const token = invite.match({ Err: () => "", Ok: (v) => v.token });
+    await acceptInvite({ token, userId: participant }, db);
+
+    // Participant forks a branch of their own from main.
+    const fork = await submitPrompt(
+      {
+        body: {
+          content: "participant fork",
+          expectedTipMessageId: null,
+          idempotencyKey: "p1",
+          selectedBranchId: mainBranchId,
+        },
+        chatId,
+        userId: participant,
+      },
+      deps,
+      db,
+    );
+    const forkedResponse = fork.match({
+      Err: () => {
+        throw new Error("participant fork failed");
+      },
+      Ok: (v) => v,
+    });
+    const participantBranch = forkedResponse.branchId;
+    await runGeneration(
+      forkedResponse.generationId,
+      genDeps,
+      new AbortController().signal,
+      db,
+    );
+
+    // The creator submits on the participant's branch → a new fork owned by the
+    // creator, never an append to someone else's branch.
+    const participantTip = (await listMessages(db, chatId))
+      .filter((m) => m.branchId === participantBranch)
+      .at(-1);
+    const creatorFork = await submitPrompt(
+      {
+        body: {
+          content: "creator's take",
+          expectedTipMessageId: participantTip?.id ?? null,
+          idempotencyKey: "c1",
+          selectedBranchId: participantBranch,
+        },
+        chatId,
+        userId: creator,
+      },
+      deps,
+      db,
+    );
+    const creatorResponse = creatorFork.match({
+      Err: (error) => {
+        throw new Error(`creator fork failed ${error.code}`);
+      },
+      Ok: (v) => v,
+    });
+
+    expect(creatorResponse.mode).toBe("forked");
+    expect(creatorResponse.parentBranchId).toBe(participantBranch);
+    const newBranch = await getBranch(db, chatId, creatorResponse.branchId);
+    expect(newBranch?.ownerUserId).toBe(creator);
   });
 
   it("marks a generation failed when the model errors before emitting text", async () => {

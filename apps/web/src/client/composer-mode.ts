@@ -1,53 +1,40 @@
 import { appendVsFork, SubmissionOutcome } from "../server/domain/branching";
 
 export type ComposerMode = {
-  status: "ready" | "blocked";
   willFork: boolean;
   label: string;
 };
 
 export type ComposerModeInput = {
-  isCreator: boolean;
+  /** The user owns the branch the composer is scoped to. */
   ownsSelectedBranch: boolean;
-  selectedIsMain: boolean;
-  /** Human label for the branch a fork would spring from (e.g. an owner name). */
+  /** The composer is aimed at an explicit fork point in history. */
+  explicitFork: boolean;
+  /** Human label for the branch a tip fork would spring from (e.g. an owner
+   * name), used only when the fork is not from an explicit point. */
   forkFromLabel: string;
 };
 
 /**
  * The composer's pre-submission state and message, mirroring the server's
- * append-vs-fork rule so the UI states the outcome before the user sends
- * (PRD §6.1). This is presentation only; the server re-derives and enforces the
- * same decision.
+ * append-vs-fork rule so the UI states the outcome before the user sends. This
+ * is presentation only; the server re-derives and enforces the same decision.
  */
 export const computeComposerMode = (input: ComposerModeInput): ComposerMode => {
   const outcome = appendVsFork({
-    isCreator: input.isCreator,
+    explicitForkRequested: input.explicitFork,
     ownsSelectedBranch: input.ownsSelectedBranch,
-    selectedIsMain: input.selectedIsMain,
   });
   switch (outcome) {
     case SubmissionOutcome.Append: {
-      return {
-        label: input.selectedIsMain
-          ? "Replying on Main."
-          : "Continuing your branch.",
-        status: "ready",
-        willFork: false,
-      };
+      return { label: "Continuing this chat.", willFork: false };
     }
     case SubmissionOutcome.Fork: {
       return {
-        label: `Your message will start a new branch from ${input.forkFromLabel}.`,
-        status: "ready",
+        label: input.explicitFork
+          ? "Your message will start a new fork from here."
+          : `Your message will start a new fork from ${input.forkFromLabel}.`,
         willFork: true,
-      };
-    }
-    case SubmissionOutcome.CreatorMustReturnToMain: {
-      return {
-        label: "Return to the Main branch to compose.",
-        status: "blocked",
-        willFork: false,
       };
     }
   }

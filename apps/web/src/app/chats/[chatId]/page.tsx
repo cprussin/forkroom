@@ -4,8 +4,8 @@ import { getPool } from "../../../server/db/pool";
 import { getSessionUserId } from "../../../server/http/session-user";
 import { getMemberRole } from "../../../server/repositories/members";
 import { getChatSnapshot } from "../../../server/repositories/snapshot";
-import { Board } from "../../../ui/Board";
 import { CenteredPanel } from "../../../ui/CenteredPanel";
+import { ChatView } from "../../../ui/ChatView";
 
 // The chat board reads live per-request data; never statically cache.
 export const dynamic = "force-dynamic";
@@ -43,7 +43,7 @@ const ChatPage = async ({
     );
   }
 
-  return <Board snapshot={snapshot} />;
+  return <ChatView snapshot={snapshot} />;
 };
 
 export default ChatPage;

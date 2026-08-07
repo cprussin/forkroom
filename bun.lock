@@ -16,6 +16,7 @@
         "@anthropic-ai/sdk": "catalog:",
         "@cprussin/option-result": "catalog:",
         "@forkroom/component-library": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
         "next": "catalog:",
         "next-auth": "catalog:",
         "pg": "catalog:",

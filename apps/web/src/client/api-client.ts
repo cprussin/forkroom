@@ -39,6 +39,7 @@ export const submitPrompt = (
     content: string;
     selectedBranchId: string;
     expectedTipMessageId: string | null;
+    forkPointMessageId?: string | null;
     idempotencyKey: string;
   },
 ): Promise<ApiResult<SubmitPromptResponse>> =>

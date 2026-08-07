@@ -43,6 +43,11 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     }
   };
 
+  // The owner's own display name (never "You"), so fork avatars show a real
+  // person's initials rather than a first-person or role placeholder.
+  const ownerName = (userId: string): string =>
+    state.members[userId]?.displayName ?? "A member";
+
   const selectBranch = (branchId: string) => {
     setForkPoint(undefined);
     setLeafBranchId(branchId);
@@ -96,6 +101,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
                     fork={entry.fork}
                     memberName={memberName}
                     onSelectBranch={selectBranch}
+                    ownerName={ownerName}
                   />
                 )}
               </div>

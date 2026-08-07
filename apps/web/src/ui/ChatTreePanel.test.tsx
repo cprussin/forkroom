@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type {
   BranchEntity,
   MemberEntity,
@@ -122,6 +123,29 @@ describe("ChatTreePanel", () => {
     expect(screen.getByRole("button", { name: "Bob" })).not.toHaveAttribute(
       "aria-current",
     );
+  });
+
+  it("renders the hovered node's message as markdown", async () => {
+    const user = userEvent.setup();
+    const withMarkdown: MessageEntity[] = [
+      message("m1", "main", 1, "user", "dana"),
+      message("m2", "main", 2, "assistant", undefined),
+      { ...message("a1", "forkA", 1, "user", "alice"), content: "**bold**" },
+      message("b1", "forkB", 1, "user", "bob"),
+    ];
+    render(
+      <ChatTreePanel
+        activeMessageIds={["m1", "m2"]}
+        branches={branches}
+        currentMessageId="m2"
+        members={members}
+        messages={withMarkdown}
+        onSelectMessage={() => undefined}
+      />,
+    );
+    await user.hover(screen.getByRole("button", { name: "Alice" }));
+    const emphasised = await screen.findByText("bold");
+    expect(emphasised.tagName).toBe("STRONG");
   });
 
   it("renders nothing when the chat has no forks", () => {

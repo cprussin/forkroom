@@ -12,6 +12,7 @@ import type {
   MemberEntity,
   MessageEntity,
 } from "../contracts/chat-entities";
+import { Markdown } from "./Markdown";
 
 type Props = {
   messages: MessageEntity[];
@@ -132,7 +133,7 @@ export const ChatTreePanel = ({
                       </button>
                     }
                   >
-                    {previewOf(messageById.get(node.messageId))}
+                    <NodePreview message={messageById.get(node.messageId)} />
                   </Tooltip>
                 </div>
               </foreignObject>
@@ -184,21 +185,23 @@ const authorLabel = (
   }
 };
 
-// The hover preview of a node's message — its text, trimmed, or a status stand-in
-// while it has none yet.
-const previewOf = (message: MessageEntity | undefined): string => {
+// The hover preview of a node's message: its content rendered as Markdown
+// (trimmed to a preview length), or a status stand-in while it has none yet.
+const NodePreview = ({ message }: { message: MessageEntity | undefined }) => {
   if (message === undefined) {
-    return "";
+    return null;
   } else {
     const text = message.content.trim();
     if (text.length === 0) {
-      return message.status === "failed"
-        ? "Failed to generate."
-        : "Generating…";
-    } else if (text.length > PREVIEW_LIMIT) {
-      return `${text.slice(0, PREVIEW_LIMIT)}…`;
+      return (
+        <span className={statusStyles}>
+          {message.status === "failed" ? "Failed to generate." : "Generating…"}
+        </span>
+      );
     } else {
-      return text;
+      const preview =
+        text.length > PREVIEW_LIMIT ? `${text.slice(0, PREVIEW_LIMIT)}…` : text;
+      return <Markdown content={preview} />;
     }
   }
 };
@@ -241,6 +244,8 @@ const scrollStyles = css({
 // Centre the graph when it fits; when it's wider than the rail it grows to the
 // right and scrolls, rather than clipping.
 const svgStyles = css({ display: "block", marginInline: "auto" });
+
+const statusStyles = css({ color: "muted", fontStyle: "italic" });
 
 const edgeStyles = css({ fill: "none", stroke: "border" });
 

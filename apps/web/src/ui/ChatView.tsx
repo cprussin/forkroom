@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { css } from "../../styled-system/css";
+import { css, cx } from "../../styled-system/css";
 import { buildThreadView } from "../client/thread-view";
 import { useChatStream } from "../client/use-chat-stream";
 import type { MessageEntity } from "../contracts/chat-entities";
@@ -180,7 +180,12 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
               ) : (
                 entries.map((entry) => (
                   <div
-                    className={entryStyles}
+                    className={cx(
+                      entryStyles,
+                      entry.message.branchId === snapshot.chat.mainBranchId
+                        ? undefined
+                        : forkedEntryStyles,
+                    )}
                     data-message-id={entry.message.id}
                     key={entry.message.id}
                     ref={(element) => {
@@ -286,6 +291,14 @@ const entryStyles = css({
   display: "flex",
   flexDirection: "column",
   gap: 1,
+});
+
+// A persistent accent rail down the leading edge of every message on a fork
+// (any non-main branch), so while you read a branched reply — however far you
+// scroll — it stays obvious that this stretch of the conversation is a fork.
+const forkedEntryStyles = css({
+  boxShadow: "inset {spacing.0.5} 0 0 0 {colors.accent}",
+  paddingInlineStart: 3.5,
 });
 
 const emptyStyles = css({

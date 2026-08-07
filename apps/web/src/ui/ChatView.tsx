@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { css } from "../../styled-system/css";
+import type { ForkSwitch } from "../client/thread-view";
 import { buildThreadView } from "../client/thread-view";
 import { useChatStream } from "../client/use-chat-stream";
 import type { MessageEntity } from "../contracts/chat-entities";
@@ -9,7 +10,9 @@ import type { ChatSnapshot } from "../contracts/chat-snapshot";
 import { ChatTreePanel } from "./ChatTreePanel";
 import type { ForkPoint } from "./Composer";
 import { Composer } from "./Composer";
-import { ForkSwitcher } from "./ForkSwitcher";
+import type { DeckVariant } from "./ForkDeck";
+import { ForkDeck } from "./ForkDeck";
+import { forkLabel } from "./fork-label";
 import { MessageView } from "./MessageView";
 import { ReconnectingBanner } from "./ReconnectingBanner";
 import { TopBar } from "./TopBar";
@@ -67,6 +70,48 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     setForkPoint(undefined);
     setLeafBranchId(branchId);
   };
+
+  // A one-line snippet of where a branch goes just past the fork, for its deck
+  // card: the trunk's next message, or the fork's first message.
+  const continuationPreview = (
+    branchId: string,
+    forkMessage: MessageEntity,
+  ): string => {
+    const branchMessages = Object.values(state.messages)
+      .filter((message) => message.branchId === branchId)
+      .sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+    const first =
+      branchId === forkMessage.branchId
+        ? branchMessages.find(
+            (message) => message.sequenceNumber > forkMessage.sequenceNumber,
+          )
+        : branchMessages[0];
+    if (first === undefined) {
+      return "No messages yet";
+    } else {
+      const text = first.content.replace(/\s+/g, " ").trim();
+      if (text.length === 0) {
+        return "…";
+      } else if (text.length > PREVIEW_LIMIT) {
+        return `${text.slice(0, PREVIEW_LIMIT)}…`;
+      } else {
+        return text;
+      }
+    }
+  };
+
+  const deckVariantsFor = (
+    fork: ForkSwitch,
+    forkMessage: MessageEntity,
+  ): DeckVariant[] =>
+    fork.variants.map((variant) => ({
+      branchId: variant.branchId,
+      label: variant.isMain
+        ? "Main"
+        : forkLabel(memberName(variant.ownerUserId)),
+      ownerUserId: variant.ownerUserId,
+      preview: continuationPreview(variant.branchId, forkMessage),
+    }));
 
   // Picking a node in the tree switches to its branch and scrolls that exact
   // message into view — highlighting it at once for immediate feedback, and
@@ -199,11 +244,11 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
                       }}
                     />
                     {entry.fork === undefined ? undefined : (
-                      <ForkSwitcher
-                        fork={entry.fork}
-                        memberName={memberName}
+                      <ForkDeck
+                        activeBranchId={entry.fork.activeBranchId}
                         onSelectBranch={selectBranch}
                         ownerName={ownerName}
+                        variants={deckVariantsFor(entry.fork, entry.message)}
                       />
                     )}
                   </div>
@@ -239,6 +284,9 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
     </div>
   );
 };
+
+// How many characters of a branch's next message to preview on its deck card.
+const PREVIEW_LIMIT = 90;
 
 const pageStyles = css({
   blockSize: "100%",

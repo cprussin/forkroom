@@ -8,6 +8,7 @@ import type { MessageEntity } from "../contracts/chat-entities";
 import type { ChatSnapshot } from "../contracts/chat-snapshot";
 import type { ForkPoint } from "./Composer";
 import { Composer } from "./Composer";
+import { ForkContextBanner } from "./ForkContextBanner";
 import { ForkSwitcher } from "./ForkSwitcher";
 import { MessageView } from "./MessageView";
 import { ReconnectingBanner } from "./ReconnectingBanner";
@@ -77,6 +78,14 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
         title={snapshot.chat.title}
       />
       {connected ? undefined : <ReconnectingBanner />}
+      {leaf === undefined || leaf.isMain ? undefined : (
+        <ForkContextBanner
+          onReturnToMain={() => {
+            selectBranch(snapshot.chat.mainBranchId);
+          }}
+          ownerName={ownerName(leaf.ownerUserId)}
+        />
+      )}
       <div
         aria-label="Conversation"
         className={scrollStyles}

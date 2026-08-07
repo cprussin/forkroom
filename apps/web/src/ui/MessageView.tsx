@@ -11,18 +11,34 @@ import { Markdown } from "./Markdown";
 type Props = {
   message: MessageEntity;
   authorName: string;
+  /** Number of continuations that branch from this message — the trunk plus
+   * every fork. When defined it is at least 2, marking this message as the
+   * point where the conversation splits. */
+  forkCount?: number | undefined;
   onForkFromHere?: (() => void) | undefined;
 };
 
 /**
  * A single message in the linear thread. Authorship, role, and generation
  * status are conveyed with text and icons — never color alone (PRD §6.5). A
- * completed message offers a "fork from here" action when one is provided.
+ * message the conversation branches at wears an accent spine and a "N versions"
+ * badge so the split is obvious at a glance. A completed message offers a "fork
+ * from here" action when one is provided.
  */
-export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
+export const MessageView = ({
+  message,
+  authorName,
+  forkCount,
+  onForkFromHere,
+}: Props) => {
   const isAssistant = message.role === "assistant";
+  const isForkPoint = forkCount !== undefined;
   return (
-    <article className={rootStyles} data-role={message.role}>
+    <article
+      className={cx(rootStyles, isForkPoint ? forkedStyles : undefined)}
+      data-forked={isForkPoint ? "" : undefined}
+      data-role={message.role}
+    >
       <header className={headerStyles}>
         <Avatar
           icon={isAssistant ? <RobotIcon weight="fill" /> : undefined}
@@ -33,6 +49,12 @@ export const MessageView = ({ message, authorName, onForkFromHere }: Props) => {
           {isAssistant ? "Assistant" : authorName}
         </span>
         <StatusTag status={message.status} />
+        {isForkPoint ? (
+          <span className={forkBadgeStyles}>
+            <GitForkIcon weight="bold" />
+            {`${forkCount.toString()} versions`}
+          </span>
+        ) : undefined}
         {onForkFromHere === undefined ||
         message.status !== "completed" ? undefined : (
           <span className={actionsStyles}>
@@ -90,6 +112,28 @@ const rootStyles = css({
   gap: 1.5,
   paddingBlock: 3,
   paddingInline: 3.5,
+});
+
+// The branch point. An accent spine on the leading edge (drawn as an inset
+// shadow so it layers over any role background without a width literal) marks
+// where the conversation splits; paired with the header badge's icon + text so
+// the cue never rests on color alone (PRD §6.5).
+const forkedStyles = css({
+  boxShadow: "inset {spacing.1} 0 0 0 {colors.accent}",
+});
+
+const forkBadgeStyles = css({
+  alignItems: "center",
+  backgroundColor:
+    "color-mix(in oklab, {colors.accent} 15%, {colors.background})",
+  borderRadius: "full",
+  color: "accent",
+  display: "inline-flex",
+  fontSize: "xs",
+  fontWeight: "semibold",
+  gap: 1,
+  paddingBlock: 0.5,
+  paddingInline: 1.5,
 });
 
 const headerStyles = css({

@@ -91,6 +91,11 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
               <div className={entryStyles} key={entry.message.id}>
                 <MessageView
                   authorName={memberName(entry.message.authorUserId)}
+                  forkCount={
+                    entry.fork === undefined
+                      ? undefined
+                      : entry.fork.variants.length
+                  }
                   message={entry.message}
                   onForkFromHere={() => {
                     forkFromHere(entry.message);

@@ -38,6 +38,18 @@ describe("ForkSwitcher", () => {
     expect(screen.getByText(/1.*3/)).toBeInTheDocument();
   });
 
+  it("announces how many versions branch from the message", () => {
+    render(
+      <ForkSwitcher
+        fork={fork}
+        memberName={memberName}
+        onSelectBranch={() => undefined}
+        ownerName={ownerName}
+      />,
+    );
+    expect(screen.getByText(/3 versions/)).toBeInTheDocument();
+  });
+
   it("moves to the next variant", async () => {
     const selected = await new Promise<string>((resolve) => {
       render(

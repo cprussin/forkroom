@@ -4,6 +4,7 @@ import { Avatar } from "@forkroom/component-library/Avatar";
 import { Button } from "@forkroom/component-library/Button";
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/ssr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/ssr/CaretRight";
+import { GitForkIcon } from "@phosphor-icons/react/dist/ssr/GitFork";
 import { css } from "../../styled-system/css";
 import type { ForkSwitch, ForkVariant } from "../client/thread-view";
 import { forkLabel } from "./fork-label";
@@ -38,6 +39,10 @@ export const ForkSwitcher = ({
 
   return (
     <div aria-label="Switch forks" className={rootStyles} role="group">
+      <span className={leadStyles}>
+        <GitForkIcon weight="bold" />
+        {`${fork.variants.length.toString()} versions`}
+      </span>
       <span className={facepileStyles}>
         {fork.variants.map((variant) => {
           const isActive = variant.branchId === fork.activeBranchId;
@@ -102,13 +107,31 @@ const variantLabel = (
 ): string =>
   variant.isMain ? "Main" : forkLabel(memberName(variant.ownerUserId));
 
+// A deliberately conspicuous control: an accent-tinted, bordered pill so the
+// branch point reads as an obvious "this reply has other versions" affordance
+// rather than a stray row of avatars.
 const rootStyles = css({
   alignItems: "center",
   alignSelf: "flex-start",
+  backgroundColor:
+    "color-mix(in oklab, {colors.accent} 8%, {colors.background})",
+  border: "1px solid color-mix(in oklab, {colors.accent} 30%, {colors.border})",
+  borderRadius: "full",
   color: "muted",
   display: "flex",
   gap: 1,
-  paddingInline: 1,
+  paddingBlock: 1,
+  paddingInline: 2,
+});
+
+const leadStyles = css({
+  alignItems: "center",
+  color: "accent",
+  display: "inline-flex",
+  fontSize: "xs",
+  fontWeight: "semibold",
+  gap: 1,
+  marginInlineEnd: 1,
 });
 
 const facepileStyles = css({

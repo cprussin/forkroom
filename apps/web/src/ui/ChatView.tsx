@@ -6,6 +6,7 @@ import { buildThreadView } from "../client/thread-view";
 import { useChatStream } from "../client/use-chat-stream";
 import type { MessageEntity } from "../contracts/chat-entities";
 import type { ChatSnapshot } from "../contracts/chat-snapshot";
+import { BranchGraphPanel } from "./BranchGraphPanel";
 import type { ForkPoint } from "./Composer";
 import { Composer } from "./Composer";
 import { ForkSwitcher } from "./ForkSwitcher";
@@ -27,10 +28,8 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
 
   const leaf =
     state.branches[leafBranchId] ?? state.branches[snapshot.chat.mainBranchId];
-  const entries = buildThreadView(
-    state,
-    leaf?.id ?? snapshot.chat.mainBranchId,
-  );
+  const currentBranchId = leaf?.id ?? snapshot.chat.mainBranchId;
+  const entries = buildThreadView(state, currentBranchId);
   const members = Object.values(state.members);
 
   const memberName = (userId: string | undefined): string => {
@@ -78,54 +77,64 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
         members={members}
         title={snapshot.chat.title}
       />
-      {connected ? undefined : <ReconnectingBanner />}
-      <div
-        aria-label="Conversation"
-        className={scrollStyles}
-        ref={scrollRef}
-        role="log"
-      >
-        <div className={threadStyles}>
-          {entries.length === 0 ? (
-            <p className={emptyStyles}>No messages yet. Say hello.</p>
-          ) : (
-            entries.map((entry) => (
-              <div className={entryStyles} key={entry.message.id}>
-                <MessageView
-                  authorName={memberName(entry.message.authorUserId)}
-                  message={entry.message}
-                  onForkFromHere={() => {
-                    forkFromHere(entry.message);
-                  }}
-                />
-                {entry.fork === undefined ? undefined : (
-                  <ForkSwitcher
-                    fork={entry.fork}
-                    memberName={memberName}
-                    onSelectBranch={selectBranch}
-                    ownerName={ownerName}
-                  />
-                )}
-              </div>
-            ))
+      <div className={bodyStyles}>
+        <div className={conversationStyles}>
+          {connected ? undefined : <ReconnectingBanner />}
+          <div
+            aria-label="Conversation"
+            className={scrollStyles}
+            ref={scrollRef}
+            role="log"
+          >
+            <div className={threadStyles}>
+              {entries.length === 0 ? (
+                <p className={emptyStyles}>No messages yet. Say hello.</p>
+              ) : (
+                entries.map((entry) => (
+                  <div className={entryStyles} key={entry.message.id}>
+                    <MessageView
+                      authorName={memberName(entry.message.authorUserId)}
+                      message={entry.message}
+                      onForkFromHere={() => {
+                        forkFromHere(entry.message);
+                      }}
+                    />
+                    {entry.fork === undefined ? undefined : (
+                      <ForkSwitcher
+                        fork={entry.fork}
+                        memberName={memberName}
+                        onSelectBranch={selectBranch}
+                        ownerName={ownerName}
+                      />
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          {leaf === undefined ? undefined : (
+            <Composer
+              chatId={snapshot.chat.id}
+              connected={connected}
+              currentUserId={snapshot.currentUserId}
+              forkPoint={forkPoint}
+              leafBranch={leaf}
+              memberName={memberName}
+              onClearForkPoint={() => {
+                setForkPoint(undefined);
+              }}
+              onSelectBranch={selectBranch}
+              state={state}
+            />
           )}
         </div>
-      </div>
-      {leaf === undefined ? undefined : (
-        <Composer
-          chatId={snapshot.chat.id}
-          connected={connected}
-          currentUserId={snapshot.currentUserId}
-          forkPoint={forkPoint}
-          leafBranch={leaf}
-          memberName={memberName}
-          onClearForkPoint={() => {
-            setForkPoint(undefined);
-          }}
+        <BranchGraphPanel
+          branches={Object.values(state.branches)}
+          currentBranchId={currentBranchId}
           onSelectBranch={selectBranch}
-          state={state}
+          ownerName={ownerName}
         />
-      )}
+      </div>
     </div>
   );
 };
@@ -136,6 +145,22 @@ const pageStyles = css({
   flex: 1,
   flexDirection: "column",
   minBlockSize: 0,
+});
+
+// Below the header the space splits horizontally: the conversation column
+// (thread + composer) fills the room, the branch graph rides alongside it.
+const bodyStyles = css({
+  display: "flex",
+  flex: 1,
+  minBlockSize: 0,
+});
+
+const conversationStyles = css({
+  display: "flex",
+  flex: 1,
+  flexDirection: "column",
+  minBlockSize: 0,
+  minInlineSize: 0,
 });
 
 const scrollStyles = css({

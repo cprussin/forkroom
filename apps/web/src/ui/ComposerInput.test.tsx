@@ -55,4 +55,33 @@ describe("ComposerInput", () => {
     );
     expect(screen.getByRole("button", { name: /send/i })).toBeDisabled();
   });
+
+  describe("keyboard hint", () => {
+    it("renders the send / newline hint when hint is set", () => {
+      render(
+        <ComposerInput
+          canSubmit
+          hint
+          onChange={noop}
+          onSubmit={noop}
+          pending={false}
+          value=""
+        />,
+      );
+      expect(screen.getByText(/for a newline/i)).toBeDefined();
+    });
+
+    it("omits the hint by default", () => {
+      render(
+        <ComposerInput
+          canSubmit
+          onChange={noop}
+          onSubmit={noop}
+          pending={false}
+          value=""
+        />,
+      );
+      expect(screen.queryByText(/for a newline/i)).toBeNull();
+    });
+  });
 });

@@ -58,6 +58,7 @@ export const NewChatComposer = () => {
       <ComposerInput
         autoFocus
         canSubmit={canSubmit}
+        hint
         onChange={setDraft}
         onSubmit={start}
         pending={pending}

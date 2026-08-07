@@ -5,6 +5,7 @@ import { CaretLeftIcon } from "@phosphor-icons/react/dist/ssr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/ssr/CaretRight";
 import { css } from "../../styled-system/css";
 import type { ForkSwitch, ForkVariant } from "../client/thread-view";
+import { forkLabel } from "./fork-label";
 
 type Props = {
   fork: ForkSwitch;
@@ -67,7 +68,7 @@ const variantLabel = (
   variant: ForkVariant,
   memberName: (userId: string | undefined) => string,
 ): string =>
-  variant.isMain ? "Main" : `${memberName(variant.ownerUserId)}'s fork`;
+  variant.isMain ? "Main" : forkLabel(memberName(variant.ownerUserId));
 
 const rootStyles = css({
   alignItems: "center",

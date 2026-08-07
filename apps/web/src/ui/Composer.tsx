@@ -11,6 +11,7 @@ import { messagesForBranch } from "../client/chat-reducer";
 import { computeComposerMode } from "../client/composer-mode";
 import type { BranchEntity } from "../contracts/chat-entities";
 import { ComposerInput } from "./ComposerInput";
+import { forkLabel } from "./fork-label";
 
 export type ForkPoint = { messageId: string; label: string };
 
@@ -50,7 +51,7 @@ export const Composer = ({
 
   const forkFromLabel = leafBranch.isMain
     ? "Main"
-    : `${memberName(leafBranch.ownerUserId)}'s fork`;
+    : forkLabel(memberName(leafBranch.ownerUserId));
   const mode = computeComposerMode({
     explicitFork: forkPoint !== undefined,
     forkFromLabel,

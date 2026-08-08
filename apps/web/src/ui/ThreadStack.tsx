@@ -15,6 +15,8 @@ type Props = {
   children: ReactNode;
   /** The other continuations, peeking out from underneath. */
   peeks: StackPeek[];
+  /** The selected branch; changing it replays the top card's enter animation. */
+  activeBranchId: string;
   ownerName: (userId: string) => string;
   onSelectBranch: (branchId: string) => void;
 };
@@ -29,6 +31,7 @@ type Props = {
 export const ThreadStack = ({
   children,
   peeks,
+  activeBranchId,
   ownerName,
   onSelectBranch,
 }: Props) => (
@@ -59,7 +62,11 @@ export const ThreadStack = ({
           </span>
         </button>
       ))}
-    <div className={topStyles}>{children}</div>
+    {/* Keyed on the selected branch so switching remounts the card and replays
+        its enter transition. */}
+    <div className={topStyles} key={activeBranchId}>
+      {children}
+    </div>
   </div>
 );
 
@@ -71,15 +78,23 @@ const stackStyles = css({
 });
 
 const topStyles = css({
+  // The card slides up and fades in when it becomes the top of the stack, so a
+  // branch switch reads as the chosen conversation coming to the front.
+  _starting: { opacity: 0, transform: "translateY({spacing.3})" },
   backgroundColor: "background",
-  border: "1px solid {colors.accent}",
+  border: "1px solid {colors.border}",
   borderRadius: "xl",
+  boxShadow: "lifted",
   display: "flex",
   flexDirection: "column",
   gap: 2,
   gridArea: "1 / 1",
+  opacity: 1,
   padding: 2,
   position: "relative",
+  transform: "translateY(0)",
+  transition:
+    "opacity {durations.normal} {easings.out}, transform {durations.normal} {easings.out}",
 });
 
 // Each peeking card is the same size as the top card, shifted down and to the

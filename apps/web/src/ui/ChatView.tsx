@@ -119,6 +119,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
           }));
         nodes.push(
           <ThreadStack
+            activeBranchId={fork.activeBranchId}
             key={`stack-${entry.message.id}`}
             onSelectBranch={selectBranch}
             ownerName={ownerName}

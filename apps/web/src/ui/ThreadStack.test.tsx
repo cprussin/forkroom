@@ -19,6 +19,7 @@ describe("ThreadStack", () => {
   it("renders the selected thread's content on top", () => {
     render(
       <ThreadStack
+        activeBranchId="main"
         onSelectBranch={() => undefined}
         ownerName={ownerName}
         peeks={peeks}
@@ -32,6 +33,7 @@ describe("ThreadStack", () => {
   it("offers a switch control for each peeking conversation", () => {
     render(
       <ThreadStack
+        activeBranchId="main"
         onSelectBranch={() => undefined}
         ownerName={ownerName}
         peeks={peeks}
@@ -51,6 +53,7 @@ describe("ThreadStack", () => {
     const selected = await new Promise<string>((resolve) => {
       render(
         <ThreadStack
+          activeBranchId="main"
           onSelectBranch={resolve}
           ownerName={ownerName}
           peeks={peeks}

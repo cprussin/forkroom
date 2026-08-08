@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { css } from "../../styled-system/css";
 import { buildThreadView } from "../client/thread-view";
@@ -9,7 +10,10 @@ import type { ChatSnapshot } from "../contracts/chat-snapshot";
 import { ChatTreePanel } from "./ChatTreePanel";
 import type { ForkPoint } from "./Composer";
 import { Composer } from "./Composer";
-import { ForkSwitcher } from "./ForkSwitcher";
+import type { CarouselFork } from "./ForkCarousel";
+import { ForkCarousel } from "./ForkCarousel";
+import { planForkColumns } from "./fork-columns";
+import { forkLabel } from "./fork-label";
 import { MessageView } from "./MessageView";
 import { ReconnectingBanner } from "./ReconnectingBanner";
 import { TopBar } from "./TopBar";
@@ -66,6 +70,107 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
   const selectBranch = (branchId: string) => {
     setForkPoint(undefined);
     setLeafBranchId(branchId);
+  };
+
+  const messageEntry = (message: MessageEntity): ReactNode => (
+    <div
+      className={entryStyles}
+      data-message-id={message.id}
+      key={message.id}
+      ref={(element) => {
+        if (element === null) {
+          messageRefs.current.delete(message.id);
+        } else {
+          messageRefs.current.set(message.id, element);
+        }
+      }}
+    >
+      <MessageView
+        authorName={memberName(message.authorUserId)}
+        message={message}
+        onForkFromHere={() => {
+          forkFromHere(message);
+        }}
+      />
+    </div>
+  );
+
+  // The messages a branch adds past the fork — its slice of that branch's path
+  // after the forked message.
+  const continuationMessages = (
+    branchId: string,
+    forkMessage: MessageEntity,
+  ): MessageEntity[] => {
+    const path = buildThreadView(state, branchId);
+    const index = path.findIndex(
+      (entry) => entry.message.id === forkMessage.id,
+    );
+    return path.slice(index + 1).map((entry) => entry.message);
+  };
+
+  // Render the thread from `start`, laying a fork out as a horizontal carousel:
+  // messages flow linearly until a fork point, where each continuation becomes a
+  // column and the selected one is centred.
+  const renderThread = (start: number): ReactNode[] => {
+    const nodes: ReactNode[] = [];
+    for (let index = start; index < entries.length; index += 1) {
+      const entry = entries[index];
+      if (entry === undefined) {
+        continue;
+      }
+      nodes.push(messageEntry(entry.message));
+      const fork = entry.fork;
+      if (fork !== undefined) {
+        const byBranch = new Map(
+          fork.variants.map((variant) => [
+            variant.branchId,
+            {
+              messages: continuationMessages(variant.branchId, entry.message),
+              variant,
+            },
+          ]),
+        );
+        const plan = planForkColumns(
+          fork.activeBranchId,
+          fork.variants.map((variant) => ({
+            branchId: variant.branchId,
+            hasContent:
+              (byBranch.get(variant.branchId)?.messages.length ?? 0) > 0,
+          })),
+        );
+        if (plan !== undefined) {
+          const forks: CarouselFork[] = plan.branchIds.flatMap((branchId) => {
+            const column = byBranch.get(branchId);
+            if (column === undefined) {
+              return [];
+            }
+            return [
+              {
+                branchId,
+                content: column.messages.map((message) =>
+                  messageEntry(message),
+                ),
+                label: column.variant.isMain
+                  ? "Main"
+                  : forkLabel(memberName(column.variant.ownerUserId)),
+                ownerUserId: column.variant.ownerUserId,
+              },
+            ];
+          });
+          nodes.push(
+            <ForkCarousel
+              activeBranchId={plan.centredBranchId}
+              forks={forks}
+              key={`carousel-${entry.message.id}`}
+              onSelectBranch={selectBranch}
+              ownerName={ownerName}
+            />,
+          );
+        }
+        return nodes;
+      }
+    }
+    return nodes;
   };
 
   // Picking a node in the tree switches to its branch and scrolls that exact
@@ -178,36 +283,7 @@ export const ChatView = ({ snapshot }: { snapshot: ChatSnapshot }) => {
               {entries.length === 0 ? (
                 <p className={emptyStyles}>No messages yet. Say hello.</p>
               ) : (
-                entries.map((entry) => (
-                  <div
-                    className={entryStyles}
-                    data-message-id={entry.message.id}
-                    key={entry.message.id}
-                    ref={(element) => {
-                      if (element === null) {
-                        messageRefs.current.delete(entry.message.id);
-                      } else {
-                        messageRefs.current.set(entry.message.id, element);
-                      }
-                    }}
-                  >
-                    <MessageView
-                      authorName={memberName(entry.message.authorUserId)}
-                      message={entry.message}
-                      onForkFromHere={() => {
-                        forkFromHere(entry.message);
-                      }}
-                    />
-                    {entry.fork === undefined ? undefined : (
-                      <ForkSwitcher
-                        fork={entry.fork}
-                        memberName={memberName}
-                        onSelectBranch={selectBranch}
-                        ownerName={ownerName}
-                      />
-                    )}
-                  </div>
-                ))
+                renderThread(0)
               )}
             </div>
           </div>
